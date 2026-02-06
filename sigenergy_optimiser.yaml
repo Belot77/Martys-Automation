@@ -1241,6 +1241,9 @@ action:
           {% set uom = cap_uom | lower if cap_uom is string else 'kwh' %}
           {% if uom == 'wh' %}
             {{ (cap_raw / 1000) | round(2) }}
+          {% elif cap_raw < 1.0 %}
+            {# Assume MWh if value is < 1.0 (e.g. 0.04 MWh = 40 kWh) #}
+            {{ (cap_raw * 1000) | round(2) }}
           {% else %}
             {{ cap_raw | round(2) }}
           {% endif %}
