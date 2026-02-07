@@ -56,7 +56,7 @@ blueprint:
     use_blueprint:
       path: mplinuxgeek/sigenergy_optimiser.yaml
       input:
-        notification_service: notify.home_users
+        notification_service: notify.mobile_app_dave_s_pixel
         ha_control_switch: switch.sigen_plant_remote_ems_controled_by_home_assistant
         grid_export_limit: number.sigen_plant_grid_export_limitation
         grid_import_limit: number.sigen_plant_grid_import_limitation
@@ -106,7 +106,7 @@ blueprint:
         notification_service:
           name: Notification Service
           description: Notify service name (e.g., `notify.home_users` or `notify.mobile_app_pixel_8`). Enter the service string; leave blank to disable notifications.
-          default: ""
+          default: "notify.mobile_app_dave_s_pixel"
           selector:
             text:
         auto_enable_ha_control:
