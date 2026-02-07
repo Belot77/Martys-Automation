@@ -846,20 +846,9 @@ blueprint:
               step: 1
               unit_of_measurement: kWh
               mode: box
-        holdoff_price_threshold:
-          name: Holdoff Price Threshold
-          description: Price threshold below which the holdoff logic is triggered. Set to 0 to only trigger on negative prices.
-          default: 0
-          selector:
-            number:
-              min: -1.0
-              max: 10.0
-              step: 0.01
-              unit_of_measurement: $/kWh
-              mode: box
         negative_price_forecast_lookahead_hours:
-          name: Forecast Lookahead (hours)
-          description: Hours to look ahead in the price forecast for prices below the holdoff threshold.
+          name: Negative Price Forecast Lookahead (hours)
+          description: Hours to look ahead in the price forecast for negative pricing.
           default: 12
           selector:
             number:
@@ -1275,7 +1264,7 @@ action:
           {% for f in fc %}
             {% if f is mapping and 'per_kwh' in f and 'start_time' in f %}
               {% set ts = as_timestamp(f.start_time) %}
-              {% if ts is not none and ts <= cutoff and (f.per_kwh | float(0)) < (holdoff_price_threshold | float(0)) %}
+              {% if ts is not none and ts <= cutoff and (f.per_kwh | float(0)) < 0 %}
                 {% set ns.found = true %}
               {% endif %}
             {% endif %}
@@ -1294,7 +1283,7 @@ action:
           {% for f in fc %}
             {% if f is mapping and 'per_kwh' in f and 'start_time' in f %}
               {% set ts = as_timestamp(f.start_time) %}
-              {% if ts is not none and ts <= cutoff_ts and (f.per_kwh | float(0)) < (holdoff_price_threshold | float(0)) %}
+              {% if ts is not none and ts <= cutoff_ts and (f.per_kwh | float(0)) < 0 %}
                 {% set ns.found = true %}
               {% endif %}
             {% endif %}
