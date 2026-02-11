@@ -2123,7 +2123,7 @@ action:
       morning_dump_limit: >
         {% if not morning_dump_active %}
           0
-        {% elif battery_soc < sunrise_reserve_soc %}
+        {% elif battery_soc <= (battery_soc_required_to_sunrise | float(0)) %}
           0
         {% else %}
           {% set available_kwh = available_discharge_energy | float(0) %}
@@ -2264,7 +2264,7 @@ action:
         {% elif feedin_is_negative %}
           Export blocked, FIT<0 ({{ feedin_price | round(3) }})
         {% elif morning_dump_active %}
-          Exporting, Morning dump {{ export_tier_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
+          Exporting, Morning dump {{ morning_dump_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
         {% elif export_high_price %}
           Exporting, High tier {{ export_tier_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif spike %}
