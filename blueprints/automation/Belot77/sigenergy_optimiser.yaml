@@ -977,6 +977,17 @@ blueprint:
               step: 0.5
               unit_of_measurement: h
               mode: box
+        solcast_forecast_period_hours:
+          name: Solcast Forecast Period Duration (hours)
+          description: Duration of each Solcast forecast period. Default 0.5 (30 minutes). Change to 1.0 for hourly forecasts. Used to convert pv_estimate (kW) to energy (kWh).
+          default: 0.5
+          selector:
+            number:
+              min: 0.25
+              max: 2.0
+              step: 0.25
+              unit_of_measurement: h
+              mode: box
 
     morning_dump:
       name: |
@@ -1272,6 +1283,7 @@ action:
       morning_slow_charge_min_feedin_price: !input morning_slow_charge_min_feedin_price
       morning_slow_charge_base_load_kw: !input morning_slow_charge_base_load_kw
       morning_slow_charge_sunset_cutoff: !input morning_slow_charge_sunset_cutoff
+      solcast_forecast_period_hours: !input solcast_forecast_period_hours
 
       pv_power: "{{ states(pv_power_sensor_entity) | float(0) }}"
       consumed_power: "{{ states(consumed_power_sensor_entity) | float(0) }}"
@@ -1505,7 +1517,7 @@ action:
                {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
                  {% set f_ts = as_timestamp(f.period_start) %}
                  {% if f_ts >= target_ts and f_ts < sunset_ts %}
-                   {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * 0.5) %}
+                   {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
                  {% endif %}
                {% endif %}
              {% endfor %}
@@ -2311,8 +2323,6 @@ action:
           {% else %}
             Importing, FREE
           {% endif %}
-        {% elif price_is_negative %}
-          Importing, paid price={{ current_price | round(3) }}
         {% elif feedin_price >= export_threshold_low %}
           Import blocked, FIT {{ feedin_price | round(3) }} > export min {{ export_threshold_low | round(3) }}
         {% elif current_price > max_price_threshold and battery_soc >= (sunrise_soc_target | float(0)) %}

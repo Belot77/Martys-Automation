@@ -10,6 +10,13 @@
   - May be intentional emergency relief valve to prevent overcharge
   - Monitor in practice: does it trigger inappropriately at low FIT prices?
 
+- [ ] **Review solar_surplus_bypass thresholds (lines 2064-2067)**
+  - Requires 2× battery capacity forecast to START bypass (e.g., 80kWh for 40kWh battery)
+  - Only 1.25× capacity to CONTINUE once active (50kWh)
+  - Extremely high thresholds likely mean this rarely/never activates in practice
+  - Question: Is this intended as emergency full-battery valve only, or should thresholds be lower?
+  - Monitor: Does this ever trigger? If not, consider lowering start_thresh to 1.5× capacity
+
 ### Known Issues
 
 - [ ] **amber_balance duplicate unique IDs**
