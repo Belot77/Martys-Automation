@@ -1313,7 +1313,9 @@ action:
         {% else %}
           1
         {% endif %}
-      feedin_price: "{{ states(feedin_sensor_entity) | float(-999) }}"
+      feedin_state: "{{ states(feedin_sensor_entity) }}"
+      feedin_available: "{{ feedin_state not in ['unknown','unavailable','none',''] }}"
+      feedin_price: "{{ feedin_state | float(-999) }}"
       price_spike_active: "{{ is_state(price_spike_sensor_entity, 'on') }}"
       demand_window_active: "{{ is_state(demand_window_sensor_entity, 'on') }}"
       export_spike_active: >
@@ -1445,7 +1447,7 @@ action:
           {{ ns.found }}
         {% endif %}
       price_is_negative: "{{ price_valid and current_price < 0 }}"
-      feedin_is_negative: "{{ feedin_price < 0 }}"
+      feedin_is_negative: "{{ feedin_available and feedin_price < 0 }}"
       morning_holdoff_window: "{{ standby_holdoff_enabled and negative_price_forecast_bool and now() < today_at(standby_holdoff_end_time) }}"
 
 
@@ -2261,6 +2263,8 @@ action:
         {% set spike = export_spike_active | default(false) %}
         {% if price_is_negative %}
           Export blocked, price<0 ({{ current_price | round(3) }})
+        {% elif not feedin_available %}
+          Export blocked, FIT unavailable
         {% elif feedin_is_negative %}
           Export blocked, FIT<0 ({{ feedin_price | round(3) }})
         {% elif morning_dump_active %}
@@ -2286,7 +2290,7 @@ action:
           {% set effective_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
           Export blocked, below {{ effective_floor | round(0) }}% target
         {% elif export_blocked_effective %}
-          Export blocked, conditions
+          Export blocked, low forecast
         {% else %}
           {% set tier_cap = export_tier_limit | float(0) %}
           {% if tier_cap <= 0 %}
@@ -2310,11 +2314,11 @@ action:
       import_reason: >
         {% set free_or_paid_import = price_is_actual and current_price <= 0 %}
         {% if morning_dump_active %}
-          Import blocked, dump active
+          Import blocked, morning dump
         {% elif demand_window_active %}
           Import blocked, demand window
         {% elif standby_holdoff_active %}
-          Import blocked, holdoff
+          Import blocked, charge holdoff
         {% elif not price_available %}
           Import blocked, price N/A
         {% elif free_or_paid_import %}
