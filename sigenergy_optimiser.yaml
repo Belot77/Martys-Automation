@@ -2243,8 +2243,6 @@ action:
           {% set limit = 0.01 %}
         {% elif spike_low_soc %}
           0
-        {% elif price_is_negative %}
-          {% set limit = import_limit_negative %}
         {% elif feedin_price >= export_threshold_low %}
           {% set limit = 0 %}
         {% else %}

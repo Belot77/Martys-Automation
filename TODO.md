@@ -4,6 +4,12 @@
 
 ### SigEnergy Optimiser Enhancements
 
+- [ ] **Fix FREE import logic bug (line 2240)**
+  - Uses `max(cap_total_import, ess_max_charge_kw)` for FREE power (price = 0)
+  - Should just use `cap_total_import` to respect user's grid capacity limit
+  - Battery charge rate is controlled separately by `desired_ess_charge_limit`
+  - Impact: Could exceed configured grid import limits during FREE power periods
+
 ### Known Issues
 
 - [ ] **amber_balance duplicate unique IDs**
