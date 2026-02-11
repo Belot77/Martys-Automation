@@ -18,6 +18,8 @@
 - ✅ Increased reason text character limits (95→250 chars) - 2026-02-11
 - ✅ Fixed import reason priority to show demand window blocking - 2026-02-11
 - ✅ Made evening mode start time configurable (`evening_mode_hours_before_sunset`, default 1.0 hours) - 2026-02-11
+- ✅ Fixed `positive_fit_override` to allow battery discharge at positive FIT (removed daytime PV surplus check) - 2026-02-11
+- ✅ Added division by zero protection for export SoC span calculation (minimum 0.1) - 2026-02-11
 
 ---
 

@@ -2412,21 +2412,17 @@ action:
               {{ limit }}
             {% endif %}
           {% elif positive_fit_override %}
-            {% if pv_surplus == 0 and is_daytime %}
+            {% set limit = [tier_cap, ess_max_discharge_kw] | min | round(1) %}
+            {% if limit <= 0 %}
               0
+            {% elif limit < min_grid_kw %}
+              {{ min_grid_kw | round(1) }}
             {% else %}
-              {% set limit = [tier_cap, ess_max_discharge_kw] | min | round(1) %}
-              {% if limit <= 0 %}
-                0
-              {% elif limit < min_grid_kw %}
-                {{ min_grid_kw | round(1) }}
-              {% else %}
-                {{ limit }}
-              {% endif %}
+              {{ limit }}
             {% endif %}
           {% else %}
             {% set diff = (battery_soc | float(0)) - (export_min_soc | float(0)) %}
-            {% set span = export_soc_span_dynamic | float(1) %}
+            {% set span = [export_soc_span_dynamic | float(1), 0.1] | max %}
             {% set scale_soc = [1.0, [(diff | float(0)) / (span | float(1)), 0] | max] | min %}
             {% if export_solar_override %}
               {% set surplus_kw = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
