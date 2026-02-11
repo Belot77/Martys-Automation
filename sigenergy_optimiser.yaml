@@ -2264,11 +2264,11 @@ action:
         {% elif feedin_is_negative %}
           Export blocked, FIT<0 ({{ feedin_price | round(3) }})
         {% elif morning_dump_active %}
-          Exporting, Morning dump {{ morning_dump_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
+          Exporting, Morning dump {{ morning_dump_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
         {% elif export_high_price %}
-          Exporting, High tier {{ export_tier_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
+          Exporting, High tier {{ export_tier_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif spike %}
-          Exporting, Spike {{ export_tier_limit | float(0) | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
+          Exporting, Spike {{ export_tier_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif export_solar_override %}
           Exporting, Solar override {{ solar_potential_kw | float(0) | round(1) }}kW{% if price_is_estimated %}*{% endif %}
         {% elif morning_slow_charge_active | bool(false) %}
@@ -2298,11 +2298,11 @@ action:
           {% else %}
             {% set boost = evening_export_boost_active | bool(false) %}
             {% if feedin_price >= export_threshold_medium %}
-              Exporting, Med tier {{ tier_cap | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
+              Exporting, Med tier {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
             {% elif boost %}
-              Exporting, Low tier (boost) {{ tier_cap | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
+              Exporting, Low tier (boost) {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
             {% else %}
-              Exporting, Low tier {{ tier_cap | round(1) }}kW @ {{ feedin_price | round(2) }}¢{% if price_is_estimated %}*{% endif %}
+              Exporting, Low tier {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
             {% endif %}
           {% endif %}
         {% endif %}
@@ -2319,7 +2319,7 @@ action:
           Import blocked, price N/A
         {% elif free_or_paid_import %}
           {% if current_price < 0 %}
-            Importing, paid price={{ current_price | round(3) }}
+            Importing, paid price={{ "%.2f" | format(current_price) }}
           {% else %}
             Importing, FREE
           {% endif %}
@@ -2342,9 +2342,9 @@ action:
           {% endif %}
         {% elif desired_import_limit > 0 %}
           {% if price_is_negative %}
-            Importing, paid price={{ current_price | round(3) }}
+            Importing, paid price={{ "%.2f" | format(current_price) }}
           {% else %}
-            Importing, cheap {{ current_price | round(3) }}{% if price_is_estimated %}*{% endif %}
+            Importing, cheap {{ "%.2f" | format(current_price) }}¢{% if price_is_estimated %}*{% endif %}
           {% endif %}
         {% else %}
           Import blocked
