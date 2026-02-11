@@ -2299,13 +2299,7 @@ action:
 
       import_reason: >
         {% set free_or_paid_import = price_is_actual and current_price <= 0 %}
-        {% if free_or_paid_import %}
-          {% if current_price < 0 %}
-            Importing, paid price={{ current_price | round(3) }}
-          {% else %}
-            Importing, FREE
-          {% endif %}
-        {% elif morning_dump_active %}
+        {% if morning_dump_active %}
           Import blocked, dump active
         {% elif demand_window_active %}
           Import blocked, demand window
@@ -2313,6 +2307,12 @@ action:
           Import blocked, holdoff
         {% elif not price_available %}
           Import blocked, price N/A
+        {% elif free_or_paid_import %}
+          {% if current_price < 0 %}
+            Importing, paid price={{ current_price | round(3) }}
+          {% else %}
+            Importing, FREE
+          {% endif %}
         {% elif price_is_negative %}
           Importing, paid price={{ current_price | round(3) }}
         {% elif feedin_price >= export_threshold_low %}
