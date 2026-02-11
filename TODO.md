@@ -4,11 +4,7 @@
 
 ### SigEnergy Optimiser Enhancements
 
-- [ ] **Fix FREE import logic bug (line 2240)**
-  - Uses `max(cap_total_import, ess_max_charge_kw)` for FREE power (price = 0)
-  - Should just use `cap_total_import` to respect user's grid capacity limit
-  - Battery charge rate is controlled separately by `desired_ess_charge_limit`
-  - Impact: Could exceed configured grid import limits during FREE power periods
+
 
 ### Known Issues
 
@@ -21,6 +17,8 @@
 
 ## Completed Changes
 
+- ✅ Fixed FREE import logic to respect grid capacity limit (line 2240: `max()` → `cap_total_import` only) - 2026-02-11
+- ✅ Removed unreachable dead code in import limit logic (`elif price_is_negative` branch) - 2026-02-11
 - ✅ Increased reason text character limits (95→250 chars) - 2026-02-11
 - ✅ Fixed import reason priority to show demand window blocking - 2026-02-11
 - ✅ Made evening mode start time configurable (`evening_mode_hours_before_sunset`, default 1.0 hours) - 2026-02-11

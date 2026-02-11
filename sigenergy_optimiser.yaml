@@ -2237,7 +2237,7 @@ action:
           {% if current_price < 0 %}
             {% set limit = import_limit_negative %}
           {% else %}
-            {% set limit = [cap_total_import, ess_max_charge_kw] | max %}
+            {% set limit = cap_total_import %}
           {% endif %}
         {% elif standby_holdoff_active %}
           {% set limit = 0.01 %}
