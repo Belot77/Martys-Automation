@@ -4,7 +4,11 @@
 
 ### SigEnergy Optimiser Enhancements
 
-
+- [ ] **Monitor 99% battery emergency valve behavior (line 2056)**
+  - At 99% SoC, allows HIGH export tier with ANY positive FIT price (even 0.01¢)
+  - Bypasses all normal tier logic, forecast guards, and SoC checks
+  - May be intentional emergency relief valve to prevent overcharge
+  - Monitor in practice: does it trigger inappropriately at low FIT prices?
 
 ### Known Issues
 

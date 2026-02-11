@@ -1760,20 +1760,13 @@ action:
           {% if current_pv_kw >= threshold_kw %}
             {{ now_ts }}
           {% else %}
-            {% set ns = namespace(found_time=none, prev_above=false) %}
+            {% set ns = namespace(found_time=none) %}
             {% for forecast in forecasts %}
               {% if forecast is mapping and 'period_start' in forecast and 'pv_estimate' in forecast %}
                 {% set forecast_ts = as_timestamp(forecast.period_start) %}
                 {% set pv_kw = forecast.pv_estimate | float(0) %}
-                {% if forecast_ts >= now_ts %}
-                  {% if pv_kw >= threshold_kw %}
-                    {% if ns.prev_above and ns.found_time is none %}
-                      {% set ns.found_time = forecast_ts %}
-                    {% endif %}
-                    {% set ns.prev_above = true %}
-                  {% else %}
-                    {% set ns.prev_above = false %}
-                  {% endif %}
+                {% if forecast_ts >= now_ts and pv_kw >= threshold_kw and ns.found_time is none %}
+                  {% set ns.found_time = forecast_ts %}
                 {% endif %}
               {% endif %}
             {% endfor %}
@@ -1913,20 +1906,13 @@ action:
           {% if current_pv_kw < threshold_kw %}
             {{ now_ts }}
           {% else %}
-            {% set ns = namespace(found_time=none, prev_above=false) %}
+            {% set ns = namespace(found_time=none) %}
             {% for forecast in forecasts | reverse %}
               {% if forecast is mapping and 'period_start' in forecast and 'pv_estimate' in forecast %}
                 {% set forecast_ts = as_timestamp(forecast.period_start) %}
                 {% set pv_kw = forecast.pv_estimate | float(0) %}
-                {% if forecast_ts <= sunset_ts %}
-                  {% if pv_kw >= threshold_kw %}
-                    {% if ns.prev_above and ns.found_time is none %}
-                      {% set ns.found_time = forecast_ts %}
-                    {% endif %}
-                    {% set ns.prev_above = true %}
-                  {% else %}
-                    {% set ns.prev_above = false %}
-                  {% endif %}
+                {% if forecast_ts <= sunset_ts and pv_kw >= threshold_kw and ns.found_time is none %}
+                  {% set ns.found_time = forecast_ts %}
                 {% endif %}
               {% endif %}
             {% endfor %}
