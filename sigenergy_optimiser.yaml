@@ -3064,7 +3064,7 @@ action:
             target:
               entity_id: !input reason_text_helper
             data:
-              value: "{{ outcome_reason | default('No reason captured') | string | truncate(95, True, '') }}"
+              value: "{{ outcome_reason | default('No reason captured') | string | truncate(250, True, '') }}"
 
 #  - choose:
 #      - conditions:
