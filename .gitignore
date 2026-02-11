@@ -1,0 +1,32 @@
+# Home Assistant
+.HA_VERSION
+.ha_run.lock
+.storage/
+.vscode/
+automations.yaml
+backup.db
+backup_config.yaml
+configuration.yaml
+custom_components/
+home-assistant.log*
+*.db
+*.db-shm
+*.db-wal
+image/
+scenes.yaml
+scripts.yaml
+secrets.yaml
+solcast_solar/
+www/
+deps/
+tts/
+packages/
+
+# Keep only the blueprint
+!blueprints/automation/Belot77/
+
+# Ignore other blueprints
+blueprints/automation/homeassistant/
+blueprints/automation/mplinuxgeek/
+blueprints/script/
+blueprints/template/
