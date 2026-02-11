@@ -86,6 +86,7 @@ blueprint:
         morning_dump_hours_before_sunrise: 2
         export_guard_relax_soc: 90
         sunset_export_grace_hours: 2
+        evening_mode_hours_before_sunset: 1.0
         reason_text_helper: input_text.sigenergy_reason
         export_threshold_low: 0.1
         export_threshold_medium: 0.2
@@ -1117,6 +1118,17 @@ blueprint:
               step: 0.5
               unit_of_measurement: h
               mode: box
+        evening_mode_hours_before_sunset:
+          name: Evening Mode Start (hours before sunset)
+          description: Start evening mode this many hours before sunset. Allows battery discharge for export earlier in the day. Higher values = more aggressive evening behavior.
+          default: 1.0
+          selector:
+            number:
+              min: 0.5
+              max: 3.0
+              step: 0.5
+              unit_of_measurement: h
+              mode: slider
         export_guard_relax_soc:
           name: Export Guard Relax SoC
           description: Above this SoC the forecast-based export guard is ignored so export can discharge harder.
@@ -1213,6 +1225,7 @@ action:
       sun_elevation_evening_threshold: !input sun_elevation_evening_threshold
       export_guard_relax_soc: !input export_guard_relax_soc
       sunset_export_grace_hours: !input sunset_export_grace_hours
+      evening_mode_hours_before_sunset: !input evening_mode_hours_before_sunset
 
       pv_power_sensor_entity: !input pv_power_sensor
       consumed_power_sensor_entity: !input consumed_power_sensor
@@ -1452,7 +1465,8 @@ action:
           {% if sunset_ts is none %}
             {{ as_timestamp(now()) | float(0) }}
           {% else %}
-            {{ (sunset_ts | float(0)) - 3600 }}
+            {% set hours_before = evening_mode_hours_before_sunset | float(1.0) %}
+            {{ (sunset_ts | float(0)) - (hours_before * 3600) }}
           {% endif %}
         {% endif %}
 
