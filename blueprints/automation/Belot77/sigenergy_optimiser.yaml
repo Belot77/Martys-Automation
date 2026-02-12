@@ -1,3 +1,12 @@
+# SigEnergy Solar Import & Export Control Automation
+# 
+# Original author: Martin Pascoe
+# - Core automation logic and EMS control framework
+# - Forecast-based optimization and price-responsive scheduling
+# - Battery management and export control algorithms
+#
+# Enhanced and maintained with community contributions
+
 blueprint:
   name: SigEnergy Solar Import & Export Control
   description: |
