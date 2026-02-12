@@ -14,6 +14,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.3] - 2026-02-13
+
+### Fixed
+- **Morning Slow Charge Activating at Midnight** - Slow charge was enabled from midnight instead of morning
+  - Root cause: Only checked time < noon, didn't verify it was actually morning
+  - At 12:07am: Slow charge activated 7+ hours before sunrise, preventing overnight battery mode
+  - Solution: Added two gating conditions:
+    * Time check: Only after 5am
+    * Sunrise proximity: Only within 2 hours of sunrise
+  - Result: Slow charge now only activates when sunrise is approaching, not all night
+
+---
+
 ## [2.0.2] - 2026-02-12
 
 ### Fixed

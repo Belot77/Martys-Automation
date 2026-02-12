@@ -1513,11 +1513,27 @@ action:
         {% set now_dt = now() %}
         {% if not enabled or now_dt >= target_dt %}
           {{ false }}
-        {% elif feedin_price <= (morning_slow_charge_min_feedin_price | float(0)) %}
+        {% elif now_dt.hour < 5 %}
+          {# Only active after 5am - prevents activation at midnight #}
           {{ false }}
         {% else %}
-           {# Check Forecast #}
-           {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
+          {# Check within 2 hours of sunrise #}
+          {% set next_rising = state_attr(sun_entity_id,'next_rising') %}
+          {% if next_rising is none %}
+            {{ false }}
+          {% else %}
+            {% set now_ts = as_timestamp(now_dt) %}
+            {% set sunrise_ts = as_timestamp(next_rising) %}
+            {% if now_ts is none or sunrise_ts is none %}
+              {{ false }}
+            {% elif (sunrise_ts - now_ts) > 7200 %}
+              {# More than 2 hours before sunrise - too early #}
+              {{ false }}
+            {% elif feedin_price <= (morning_slow_charge_min_feedin_price | float(0)) %}
+              {{ false }}
+            {% else %}
+              {# Check Forecast #}
+              {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
            {% if forecasts is not iterable %}
              {{ false }}
            {% else %}
@@ -1537,6 +1553,8 @@ action:
              {% set bat_need = battery_fill_need_kwh | float(0) %}
              {{ ns.total_pv >= ((bat_need + load_need) * forecast_safety_charging) }}
            {% endif %}
+            {% endif %}
+          {% endif %}
         {% endif %}
       local_time: "{{ now() }}"
       internal_battery_soc: "{{ battery_soc }}"
