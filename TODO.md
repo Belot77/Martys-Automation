@@ -4,18 +4,17 @@
 
 ### SigEnergy Optimiser Enhancements
 
-- [ ] **Monitor 99% battery emergency valve behavior (line 2056)**
-  - At 99% SoC, allows HIGH export tier with ANY positive FIT price (even 0.01¢)
-  - Bypasses all normal tier logic, forecast guards, and SoC checks
-  - May be intentional emergency relief valve to prevent overcharge
-  - Monitor in practice: does it trigger inappropriately at low FIT prices?
-
-- [ ] **Review solar_surplus_bypass thresholds (lines 2064-2067)**
+- [ ] **Review solar_surplus_bypass thresholds (lines 2058-2072)**
   - Requires 2× battery capacity forecast to START bypass (e.g., 80kWh for 40kWh battery)
   - Only 1.25× capacity to CONTINUE once active (50kWh)
-  - Extremely high thresholds likely mean this rarely/never activates in practice
-  - Question: Is this intended as emergency full-battery valve only, or should thresholds be lower?
-  - Monitor: Does this ever trigger? If not, consider lowering start_thresh to 1.5× capacity
+  - High thresholds mean this activates only with excellent solar forecasts
+  - Monitor: Does starting threshold need adjustment based on local conditions?
+
+- [ ] **Monitor full_battery_pv_export behavior (line 2059)**
+  - At 99% SoC with PV surplus, allows high export limit regardless of FIT tier
+  - Prevents solar curtailment when battery full
+  - Uses solar_potential_kw (uncurtailed) to calculate export limit
+  - Monitor: Verify it doesn't discharge battery unnecessarily
 
 ### Known Issues
 
@@ -27,6 +26,50 @@
 ---
 
 ## Completed Changes
+
+### February 2026 - Major Enhancements
+
+- ✅ **Added attribution to Martin Pascoe as original author** - 2026-02-12
+  - Credited for core automation logic, EMS control framework, and optimization algorithms
+  
+- ✅ **Improved export status message clarity** - 2026-02-12
+  - Distinguished between tier-based export limits (5/10/25kW) and full battery PV export
+  - Added `full_battery_pv_export` tracking variable
+  - Shows "Full battery 11.5kW" instead of misleading "Low tier 25kW"
+
+- ✅ **Fixed solar bypass export blocking bug** - 2026-02-12
+  - Solar bypass with 93kWh forecast was blocked by export_tier_limit at 40% battery
+  - Moved solar_surplus_bypass calculation before export_tier_limit
+  - Added bypass exception to min_export_target_soc check
+  - Commit: 304e147
+
+- ✅ **Fixed full battery solar curtailment** - 2026-02-12
+  - Battery at 100% was causing PV curtailment loop (1kW actual vs 15kW potential)
+  - Changed desired_export_limit to use solar_potential_kw when battery ≥99%
+  - Prevents battery discharge while allowing full PV export
+  - Commit: 40a5701
+
+- ✅ **Implemented configurable forecast safety margins** - 2026-02-12
+  - Replaced 7+ hardcoded margins (1.1×, 1.25×) with two grouped settings
+  - `forecast_safety_charging` (default 1.25): Conservative for charge/dump decisions
+  - `forecast_safety_export` (default 1.1): Less conservative for export decisions
+  - Applied to: morning slow charge, morning dump, standby holdoff, export guards, daytime top-up
+  - Commit: 40a5701
+
+- ✅ **Added morning dump forecast protection** - 2026-02-12
+  - Morning dump now checks if sufficient solar forecast to refill battery
+  - Prevents dumping when forecast insufficient, avoiding expensive grid import
+  - Consistent with morning slow charge forecast logic
+  - Commit: 40a5701
+
+- ✅ **Improved status message clarity for special modes** - 2026-02-11
+  - "dump active" → "morning dump"
+  - "holdoff" → "charge holdoff"
+  - "conditions" → "low forecast"
+  - Fixed FIT sensor unavailable handling (prevents "-999" display)
+  - Commit: e018902
+
+### Earlier Improvements
 
 - ✅ Fixed FREE import logic to respect grid capacity limit (line 2240: `max()` → `cap_total_import` only) - 2026-02-11
 - ✅ Removed unreachable dead code in import limit logic (`elif price_is_negative` branch) - 2026-02-11

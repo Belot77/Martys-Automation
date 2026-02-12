@@ -1076,7 +1076,7 @@ blueprint:
               mode: box
         forecast_safety_charging:
           name: Forecast Safety Margin - Charging
-          description: Multiplier for forecast checks when deciding to charge/dump (e.g., 1.25 = require 25% extra solar). Higher = more conservative. Used by morning slow charge, morning dump, standby holdoff, and daytime top-up.
+          description: Multiplier for forecast checks when deciding to charge/dump (e.g., 1.25 = require 25% extra solar). Higher = more conservative. Used by morning slow charge, morning dump, standby holdoff, and daytime top-up. Adjust based on local Solcast accuracy - if forecast insufficient you'll import expensive grid power.
           default: 1.25
           selector:
             number:
@@ -1086,7 +1086,7 @@ blueprint:
               mode: box
         forecast_safety_export:
           name: Forecast Safety Margin - Export
-          description: Multiplier for forecast checks when deciding to export (e.g., 1.1 = require 10% extra solar). Higher = more conservative. Used by export forecast guard, PV safeguard, and evening export boost.
+          description: Multiplier for forecast checks when deciding to export (e.g., 1.1 = require 10% extra solar). Higher = more conservative. Used by export forecast guard, PV safeguard, and evening export boost. Lower consequence than charging margin - if wrong you miss export earnings rather than importing expensive power.
           default: 1.1
           selector:
             number:
@@ -2063,6 +2063,11 @@ action:
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
         {{ not full_export_override and not positive_fit_override and forecast_available and (forecast_remaining | float(0)) <= ((battery_fill_need_kwh | float(0)) * forecast_safety_export) }}
 
+      # Solar Surplus Bypass: When forecast is excellent, bypass normal export restrictions
+      # to allow full PV export even when battery is below target SoC.
+      # START threshold: 2× battery capacity (e.g., 80kWh for 40kWh battery)
+      # CONTINUE threshold: 1.25× battery (50kWh) - hysteresis prevents flapping
+      # Only active when PV production exceeds load by meaningful amount
       solar_surplus_bypass: >
         {% if morning_slow_charge_active | bool(false) %}
           {{ false }}
@@ -2077,12 +2082,20 @@ action:
           {{ pv_over_load and (start_ok or continue_ok) }}
         {% endif %}
 
+      # Full Battery PV Export: Emergency valve to prevent solar curtailment when battery full.
+      # When battery ≥99% with PV surplus during daytime, allow high export limit regardless
+      # of FIT tier or SoC targets. Uses solar_potential_kw (uncurtailed) to calculate limit.
+      # Prevents chicken-and-egg: no export → PV curtailed → no surplus → no export.
       full_battery_pv_export: >
         {% set daytime = (not is_evening_or_night) and (not high_price) and (not export_spike_active) %}
         {% set battery_full = battery_soc >= 99 %}
         {% set has_pv_surplus = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {{ daytime and battery_full and has_pv_surplus and feedin_price > 0 }}
 
+      # Export Tier Limit: Determines kW export cap based on FIT price, battery SoC, and mode.
+      # Three price tiers (low/medium/high) with corresponding kW limits (default 5/10/25kW).
+      # Overrides: spike mode, full battery, evening boost, solar surplus bypass.
+      # Protection: forecast guard, SoC floor, below-target blocking.
       export_tier_limit: >
         {% set full_export_override = battery_soc >= max_battery_soc and not is_evening_or_night and ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
@@ -2483,6 +2496,10 @@ action:
               {% set raw_limit = (tier_cap | float(0)) * (scale_soc | float(0)) * 0.9 %}
               {% set final_limit = [raw_limit, safe_cap] | min %}
               {% set limit = [final_limit, ess_max_discharge_kw] | min | round(1) %}
+              # PV Surplus Cap: During daytime normal operation, cap export to PV surplus.
+              # When battery ≥99%: Use solar_potential_kw (uncurtailed) to open export path.
+              # When battery <99%: Use actual pv_kw to avoid battery discharge.
+              # Prevents battery drain at low prices while allowing full solar export when full.
               {% if (not is_evening_or_night) and (not high_price and not spike) %}
                 {% if battery_soc >= 99 %}
                   {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
