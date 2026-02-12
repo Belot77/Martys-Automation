@@ -1695,6 +1695,13 @@ action:
           {{ mins | int }}m
         {% endif %}
 
+      grid_export_actual_kw: >
+        {% set batt = battery_power_kw | float(0) %}
+        {% set pv = pv_kw | float(0) %}
+        {% set load = load_kw | float(0) %}
+        {% set net_export = pv - batt - load %}
+        {{ [net_export, 0] | max | round(2) }}
+
       hours_to_sunrise: >
         {% set next_rising = state_attr(sun_entity_id,'next_rising') %}
         {% if next_rising is none %}
@@ -2318,48 +2325,48 @@ action:
         {% elif feedin_is_negative %}
           Export blocked, FIT<0 ({{ feedin_price | round(3) }})
         {% elif morning_dump_active %}
-          Exporting, Morning dump {{ morning_dump_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
+          Exporting {{ grid_export_actual_kw }}kW, Morning dump @ {{ "%.2f" | format(feedin_price) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
         {% elif export_high_price %}
-          Exporting, High tier {{ export_tier_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+          Exporting {{ grid_export_actual_kw }}kW, High tier @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif spike %}
-          Exporting, Spike {{ export_tier_limit | float(0) | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+          Exporting {{ grid_export_actual_kw }}kW, Spike @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif export_solar_override %}
-          Exporting, Solar override {{ solar_potential_kw | float(0) | round(1) }}kW{% if price_is_estimated %}*{% endif %}
+          Exporting {{ grid_export_actual_kw }}kW, Solar override{% if price_is_estimated %}*{% endif %}
         {% elif morning_slow_charge_active | bool(false) %}
-          Exporting, Slow charge {{ morning_slow_charge_rate_kw }}kW
+          Exporting {{ grid_export_actual_kw }}kW, Slow charge
         {% elif solar_surplus_bypass %}
-          Exporting, Solar bypass {{ export_tier_limit | float(0) | round(1) }}kW ({{ forecast_remaining | round(0) }}kWh left){% if price_is_estimated %}*{% endif %}
+          Exporting {{ grid_export_actual_kw }}kW, Solar bypass ({{ forecast_remaining | round(0) }}kWh left){% if price_is_estimated %}*{% endif %}
         {% elif export_blocked_for_forecast or export_forecast_guard %}
           Export blocked, forecast protection
         {% elif battery_soc <= export_min_soc %}
           Export blocked, at {{ export_min_soc | round(0) }}% floor
-        {% elif battery_soc < min_export_target_soc and past_morning_grace_period %}
-          {% set effective_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
-          Export blocked, below {{ effective_floor | round(0) }}% target
-        {% elif battery_soc < min_export_target_soc %}
-          {% set effective_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
-          Export blocked, below {{ effective_floor | round(0) }}% target
-        {% elif export_blocked_effective %}
-          Export blocked, low forecast
-        {% elif full_battery_pv_export %}
-          {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
-          Exporting, Full battery {{ pv_surplus | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% else %}
-          {% set tier_cap = export_tier_limit | float(0) %}
-          {% if tier_cap <= 0 %}
-            {% if pv_safeguard_active %}
-              Export blocked, forecast protection
-            {% else %}
-              Export blocked, FIT {{ feedin_price | round(3) }}{% if price_is_estimated %}*{% endif %} < {{ export_threshold_low | round(3) }}
-            {% endif %}
+          {% set effective_export_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
+          {% if battery_soc < effective_export_floor and past_morning_grace_period %}
+            Export blocked, below {{ effective_export_floor | round(0) }}% target
+          {% elif battery_soc < effective_export_floor %}
+            Export blocked, below {{ effective_export_floor | round(0) }}% target
+          {% elif export_blocked_effective %}
+            Export blocked, low forecast
+          {% elif full_battery_pv_export %}
+            Exporting {{ grid_export_actual_kw }}kW, Full battery @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
           {% else %}
-            {% set boost = evening_export_boost_active | bool(false) %}
-            {% if feedin_price >= export_threshold_medium %}
-              Exporting, Med tier {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
-            {% elif boost %}
-              Exporting, Low tier (boost) {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+            {% set tier_cap = export_tier_limit | float(0) %}
+            {% if tier_cap <= 0 %}
+              {% if pv_safeguard_active %}
+                Export blocked, forecast protection
+              {% else %}
+                Export blocked, FIT {{ feedin_price | round(3) }}{% if price_is_estimated %}*{% endif %} < {{ export_threshold_low | round(3) }}
+              {% endif %}
             {% else %}
-              Exporting, Low tier {{ tier_cap | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+              {% set boost = evening_export_boost_active | bool(false) %}
+              {% if feedin_price >= export_threshold_medium %}
+                Exporting {{ grid_export_actual_kw }}kW, Med tier @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+              {% elif boost %}
+                Exporting {{ grid_export_actual_kw }}kW, Low tier (boost) @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+              {% else %}
+                Exporting {{ grid_export_actual_kw }}kW, Low tier @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
+              {% endif %}
             {% endif %}
           {% endif %}
         {% endif %}

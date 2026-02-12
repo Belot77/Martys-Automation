@@ -14,6 +14,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.2] - 2026-02-12
+
+### Fixed
+- **Status Message Threshold Mismatch** - Export status showed "blocked" while actually exporting
+  - Root cause: Status checked `min_export_target_soc` (40%), control checked `effective_export_floor` (35% when boost)
+  - At 40% battery with boost active: Status said "blocked below 35%", system actually exported 2.6kW
+  - Solution: Status now uses `effective_export_floor` matching actual export control logic
+  - Result: Status message now accurately reflects whether export is actually allowed/blocked
+
+---
+
 ## [2.0.1] - 2026-02-12
 
 ### Fixed
