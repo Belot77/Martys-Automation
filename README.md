@@ -242,6 +242,20 @@ Blocks unnecessary grid import when solar forecast can naturally reach target So
 - If missing export opportunities: Decrease export margin (e.g., 1.1 → 1.05)
 - If running out of battery: Increase charging margin (e.g., 1.25 → 1.35)
 
+### Template Variable Errors
+If seeing "Template error: ... is undefined" warnings:
+1. Blueprint was updated but automation hasn't reloaded
+2. **Solution**: Settings → Automations → Turn OFF → Wait 5 seconds → Turn ON
+3. Alternative: Restart Home Assistant
+4. Verify warnings disappear from logs
+
+### Automation Not Updating After Blueprint Changes
+After updating the blueprint file:
+1. **Must restart automation**: Settings → Automations → OFF → Wait → ON
+2. OR restart Home Assistant to reload all blueprints
+3. Verify trace shows new variables and logic
+4. Check logs for template errors indicating stale cache
+
 ---
 
 ## Contributing

@@ -14,6 +14,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.1] - 2026-02-12
+
+### Fixed
+- **Evening Export Boost Not Working** - Critical bug preventing evening export without PV surplus
+  - Root cause: Line 2419 blocked export when `pv_surplus == 0` during "daytime"
+  - At 6:50pm sun elevation 12.75° still registered as daytime, blocking export
+  - Solution: Added `and not evening_export_boost_active` exception to allow boost export
+  - Fixes: Evening export now allows aggressive discharge even after sunset when boost enabled
+- **Template Syntax Error** - Comments using Python `#` syntax caused ValueError crashes
+  - Root cause: Strategic comments at lines 2499-2502 output as literal text in Jinja2
+  - Error: `float got invalid input '# PV Surplus Cap: ... 6.0'`
+  - Solution: Changed to proper Jinja2 comment syntax `{# comment #}`
+  - Affects: PV surplus cap comment block (lines 2499-2502)
+
+### Documentation
+- Added troubleshooting section for blueprint reload issues
+- Added troubleshooting for template variable errors
+- Documented requirement to restart automation after blueprint updates
+
+---
+
 ## [2.0.0] - 2026-02-12
 
 ### Added

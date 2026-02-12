@@ -2420,7 +2420,7 @@ action:
           {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
           {% set morning_slow_charge_allows_export = morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw) %}
           {% set effective_export_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
-          {% if pv_surplus == 0 and is_daytime and not high_price and not spike %}
+          {% if pv_surplus == 0 and is_daytime and not high_price and not spike and not evening_export_boost_active %}
            0
           {% elif morning_dump_active %}
             {{ morning_dump_limit }}
@@ -2496,10 +2496,10 @@ action:
               {% set raw_limit = (tier_cap | float(0)) * (scale_soc | float(0)) * 0.9 %}
               {% set final_limit = [raw_limit, safe_cap] | min %}
               {% set limit = [final_limit, ess_max_discharge_kw] | min | round(1) %}
-              # PV Surplus Cap: During daytime normal operation, cap export to PV surplus.
-              # When battery ≥99%: Use solar_potential_kw (uncurtailed) to open export path.
-              # When battery <99%: Use actual pv_kw to avoid battery discharge.
-              # Prevents battery drain at low prices while allowing full solar export when full.
+              {# PV Surplus Cap: During daytime normal operation, cap export to PV surplus.
+              When battery ≥99%: Use solar_potential_kw (uncurtailed) to open export path.
+              When battery <99%: Use actual pv_kw to avoid battery discharge.
+              Prevents battery drain at low prices while allowing full solar export when full. #}
               {% if (not is_evening_or_night) and (not high_price and not spike) %}
                 {% if battery_soc >= 99 %}
                   {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}

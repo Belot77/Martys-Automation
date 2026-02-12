@@ -29,6 +29,18 @@
 
 ### February 2026 - Major Enhancements
 
+- ✅ **Fixed evening export boost blocking bug** - 2026-02-12
+  - Evening export was blocked when PV surplus = 0 even with boost enabled
+  - At 6:50pm with sun elevation 12.75°, still considered "daytime" and blocked
+  - Added `and not evening_export_boost_active` exception to line 2419
+  - Allows aggressive evening export even without PV surplus when tomorrow's forecast sufficient
+
+- ✅ **Fixed template comment syntax error** - 2026-02-12
+  - Strategic comments using Python `#` syntax output as literal text
+  - Caused ValueError: "float got invalid input '# PV Surplus Cap: ... 6.0'"
+  - Changed to Jinja2 comment syntax `{# comment #}` at lines 2499-2502
+  - Prevents automation crashes from template rendering errors
+
 - ✅ **Added attribution to Martin Pascoe as original author** - 2026-02-12
   - Credited for core automation logic, EMS control framework, and optimization algorithms
   
