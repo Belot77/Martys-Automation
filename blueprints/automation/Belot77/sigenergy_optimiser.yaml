@@ -781,16 +781,6 @@ blueprint:
               step: 5
               unit_of_measurement: "%"
               mode: box
-        evening_boost_forecast_margin:
-          name: Tomorrow Forecast Safety Margin
-          description: Safety multiplier for tomorrow's PV forecast (1.25 = need 25% extra forecast). Higher = more conservative, boost activates less often.
-          default: 1.25
-          selector:
-            number:
-              min: 1.0
-              max: 2.0
-              step: 0.05
-              mode: box
 
     import_topup:
       name: |
@@ -1075,15 +1065,25 @@ blueprint:
               step: 0.01
               unit_of_measurement: $/kWh
               mode: box
-        forecast_safety_margin:
-          name: Forecast Safety Margin
-          description: Multiplier on forecast need to keep a safety buffer.
-          default: 1.2
+        forecast_safety_charging:
+          name: Forecast Safety Margin - Charging
+          description: Multiplier for forecast checks when deciding to charge/dump (e.g., 1.25 = require 25% extra solar). Higher = more conservative. Used by morning slow charge, morning dump, standby holdoff, and daytime top-up.
+          default: 1.25
           selector:
             number:
-              min: 1
-              max: 3
-              step: 0.1
+              min: 1.0
+              max: 2.0
+              step: 0.05
+              mode: box
+        forecast_safety_export:
+          name: Forecast Safety Margin - Export
+          description: Multiplier for forecast checks when deciding to export (e.g., 1.1 = require 10% extra solar). Higher = more conservative. Used by export forecast guard, PV safeguard, and evening export boost.
+          default: 1.1
+          selector:
+            number:
+              min: 1.0
+              max: 2.0
+              step: 0.05
               mode: box
         export_soc_span_day:
           name: Export SoC Span Day
@@ -1209,7 +1209,6 @@ action:
       min_export_target_soc: !input min_export_target_soc
       evening_boost_enabled: !input evening_boost_enabled
       evening_aggressive_floor: !input evening_aggressive_floor
-      evening_boost_forecast_margin: !input evening_boost_forecast_margin
       sunrise_reserve_soc: !input sunrise_reserve_soc
       sunrise_safety_factor: !input sunrise_safety_factor
       sunrise_buffer_percent: !input sunrise_buffer_percent
@@ -1230,7 +1229,8 @@ action:
       min_grid_transfer_kw: !input min_grid_transfer_kw
       export_hysteresis_percent: !input export_hysteresis_percent
       price_hysteresis: !input price_hysteresis
-      forecast_safety_margin: !input forecast_safety_margin
+      forecast_safety_charging: !input forecast_safety_charging
+      forecast_safety_export: !input forecast_safety_export
       export_soc_span_day: !input export_soc_span_day
       export_discharge_window_hours: !input export_discharge_window_hours
       sun_elevation_evening_threshold: !input sun_elevation_evening_threshold
@@ -1526,7 +1526,7 @@ action:
              
              {% set load_need = ((sunset_ts - target_ts) / 3600.0) * (morning_slow_charge_base_load_kw | float(0.5)) %}
              {% set bat_need = battery_fill_need_kwh | float(0) %}
-             {{ ns.total_pv >= (bat_need + load_need) }}
+             {{ ns.total_pv >= ((bat_need + load_need) * forecast_safety_charging) }}
            {% endif %}
         {% endif %}
       local_time: "{{ now() }}"
@@ -1838,7 +1838,30 @@ action:
           {% if now_ts is none or start_ts is none or end_ts is none %}
             {{ false }}
           {% else %}
-            {{ (now_ts | float(0)) >= (start_ts | float(0)) and (now_ts | float(0)) <= (end_ts | float(0)) }}
+            {% set in_time_window = (now_ts | float(0)) >= (start_ts | float(0)) and (now_ts | float(0)) <= (end_ts | float(0)) %}
+            {% if not in_time_window %}
+              {{ false }}
+            {% else %}
+              {# Check if there's enough forecast to refill battery after dump #}
+              {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
+              {% if forecasts is not iterable %}
+                {{ false }}
+              {% else %}
+                {% set sunset_ts = productive_solar_end_ts %}
+                {% set ns = namespace(total_pv=0) %}
+                {% for f in forecasts %}
+                  {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
+                    {% set f_ts = as_timestamp(f.period_start) %}
+                    {% if f_ts >= end_ts and f_ts < sunset_ts %}
+                      {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+                {% set load_need = ((sunset_ts - end_ts) / 3600.0) * (consumed_power | float(0.5)) %}
+                {% set bat_need = battery_fill_need_kwh | float(0) %}
+                {{ ns.total_pv >= ((bat_need + load_need) * forecast_safety_charging) }}
+              {% endif %}
+            {% endif %}
           {% endif %}
         {% endif %}
 
@@ -1960,7 +1983,7 @@ action:
 
       standby_holdoff_active: >
         {% set cutoff = today_at(standby_holdoff_end_time) %}
-        {% set battery_can_reach_target_from_pv = (forecast_remaining | float(0)) >= ((sunrise_fill_need_kwh | float(0)) * 1.1) %}
+        {% set battery_can_reach_target_from_pv = (forecast_remaining | float(0)) >= ((sunrise_fill_need_kwh | float(0)) * forecast_safety_charging) %}
         {{ standby_holdoff_enabled
            and forecast_today >= pv_forecast_holdoff_kwh
            and negative_price_before_cutoff
@@ -2003,8 +2026,7 @@ action:
             {% else %}
               {% set overnight_buffer = 10 %}
               {% set overnight_covered = battery_soc > ((battery_soc_required_to_sunrise | float(0)) + overnight_buffer) %}
-              {% set margin = evening_boost_forecast_margin | float(1.25) %}
-              {% set tomorrow_will_refill = (forecast_tomorrow | float(0)) >= ((battery_fill_need_kwh | float(0)) * margin) %}
+              {% set tomorrow_will_refill = (forecast_tomorrow | float(0)) >= ((battery_fill_need_kwh | float(0)) * forecast_safety_export) %}
               {% set feedin_fc = state_attr(feedin_forecast_sensor_entity,'forecasts') %}
               {% set no_high_fit = true %}
               {% if feedin_fc is iterable %}
@@ -2030,7 +2052,7 @@ action:
       pv_safeguard_active: >
         {% set full_export_override = battery_soc >= max_battery_soc and not is_evening_or_night and ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
-        {{ not full_export_override and not positive_fit_override and forecast_available and (forecast_remaining | float(0)) <= ((battery_fill_need_kwh | float(0)) * 1.25) }}
+        {{ not full_export_override and not positive_fit_override and forecast_available and (forecast_remaining | float(0)) <= ((battery_fill_need_kwh | float(0)) * forecast_safety_export) }}
 
       solar_surplus_bypass: >
         {% if morning_slow_charge_active | bool(false) %}
@@ -2094,11 +2116,11 @@ action:
         {% else %}
           {% set est_load_kwh = (load_kw | float(0)) * (hours_to_sunset | float(0)) %}
           {% set net_fc = (forecast_remaining | float(0)) - est_load_kwh %}
-          {{ net_fc < ((battery_fill_need_kwh | float(0)) * 1.25) }}
+          {{ net_fc < ((battery_fill_need_kwh | float(0)) * forecast_safety_export) }}
         {% endif %}
       export_forecast_guard: >
         {% set need = sunrise_fill_need_kwh | float(0) %}
-        {% set required = need * 1.25 %}
+        {% set required = need * forecast_safety_export %}
         {% if battery_soc >= (export_guard_relax_soc | float(90)) or close_to_sunset %}
           {{ false }}
         {% elif is_evening_or_night %}
@@ -2112,7 +2134,7 @@ action:
 
       export_forecast_guard_detail: >
         {% set need = sunrise_fill_need_kwh | float(0) %}
-        {% set required = need * 1.25 %}
+        {% set required = need * forecast_safety_export %}
         {% set net_fc = forecast_remaining | float(0) %}
         {% if need <= 0 or net_fc >= required %}
           {{ '' }}
@@ -2183,7 +2205,7 @@ action:
             {% if battery_soc < daytime_topup_max_soc
                   and current_price <= max_price_threshold %}
               {% set net_forecast_for_charge = forecast_remaining_after_load | float(0) %}
-              {% set forecast_short = (net_forecast_for_charge | float(0)) < ((sunrise_fill_need_kwh | float(0)) * forecast_safety_margin) %}
+              {% set forecast_short = (net_forecast_for_charge | float(0)) < ((sunrise_fill_need_kwh | float(0)) * forecast_safety_charging) %}
               {% set pv_surplus_kw = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
               {% set needs_charge_rate = (pv_surplus_kw | float(0)) < (target_battery_charge | float(0)) %}
               {% set prevent_discharge = battery_soc >= daytime_topup_max_soc and (pv_kw | float(0)) < (load_kw | float(0)) %}
@@ -2444,7 +2466,11 @@ action:
               {% set final_limit = [raw_limit, safe_cap] | min %}
               {% set limit = [final_limit, ess_max_discharge_kw] | min | round(1) %}
               {% if (not is_evening_or_night) and (not high_price and not spike) %}
-                {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                {% if battery_soc >= 99 %}
+                  {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                {% else %}
+                  {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                {% endif %}
                 {% set limit = [(limit | float(0)), (pv_surplus | float(0))] | min %}
               {% endif %}
               {% if limit <= 0 %}
