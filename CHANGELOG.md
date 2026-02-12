@@ -14,6 +14,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.4] - 2026-02-13
+
+### Fixed
+- **Template Variable Order Error** - `productive_solar_end_ts` undefined causing 116 errors at 6:33am
+  - Root cause: `morning_dump_active` (line 1865) referenced `productive_solar_end_ts` before it was defined (line 1967)
+  - Forward reference in Jinja2 template caused UndefinedError when morning dump window opened
+  - Solution: Moved `productive_solar_end_time` and `productive_solar_end_ts` definitions before `morning_dump_active`
+  - Result: All template variables now defined before use, preventing runtime errors
+
+---
+
 ## [2.0.3] - 2026-02-13
 
 ### Fixed
