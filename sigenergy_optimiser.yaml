@@ -2032,6 +2032,20 @@ action:
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
         {{ not full_export_override and not positive_fit_override and forecast_available and (forecast_remaining | float(0)) <= ((battery_fill_need_kwh | float(0)) * 1.25) }}
 
+      solar_surplus_bypass: >
+        {% if morning_slow_charge_active | bool(false) %}
+          {{ false }}
+        {% else %}
+          {% set cap = battery_capacity_kwh | float(10) %}
+          {% set start_thresh = cap * 2 %}
+          {% set stop_thresh = cap * 1.25 %}
+          {% set pv_over_load = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
+          {% set start_ok = forecast_remaining >= start_thresh %}
+          {% set continue_ok = forecast_remaining >= stop_thresh
+                                and current_mode in ['Command Discharging (PV First)','Command Discharging (ESS First)'] %}
+          {{ pv_over_load and (start_ok or continue_ok) }}
+        {% endif %}
+
       export_tier_limit: >
         {% set full_export_override = battery_soc >= max_battery_soc and not is_evening_or_night and ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
@@ -2059,7 +2073,7 @@ action:
           {% if boost_active and not below_boost_floor %}
             {% set frac = (feedin_price - export_threshold_low) / (export_threshold_medium - export_threshold_low) %}
             {{ export_limit_low + (frac * (export_limit_medium - export_limit_low)) }}
-          {% elif below_target or pv_safeguard_active %}
+          {% elif (below_target or pv_safeguard_active) and not solar_surplus_bypass %}
             0
           {% else %}
             {% set frac = (feedin_price - export_threshold_low) / (export_threshold_medium - export_threshold_low) %}
@@ -2068,20 +2082,6 @@ action:
         {% endif %}
 
       export_high_price: "{{ feedin_price >= export_threshold_high }}"
-
-      solar_surplus_bypass: >
-        {% if morning_slow_charge_active | bool(false) %}
-          {{ false }}
-        {% else %}
-          {% set cap = battery_capacity_kwh | float(10) %}
-          {% set start_thresh = cap * 2 %}
-          {% set stop_thresh = cap * 1.25 %}
-          {% set pv_over_load = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
-          {% set start_ok = forecast_remaining >= start_thresh %}
-          {% set continue_ok = forecast_remaining >= stop_thresh
-                                and current_mode in ['Command Discharging (PV First)','Command Discharging (ESS First)'] %}
-          {{ pv_over_load and (start_ok or continue_ok) }}
-        {% endif %}
 
       export_blocked_for_forecast: >
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
@@ -2373,9 +2373,9 @@ action:
             {{ morning_dump_limit }}
           {% elif price_is_negative or feedin_is_negative %}
             0
-          {% elif battery_soc < effective_export_floor and not within_morning_grace_period and not morning_slow_charge_allows_export %}
+          {% elif battery_soc < effective_export_floor and not within_morning_grace_period and not morning_slow_charge_allows_export and not solar_surplus_bypass %}
             0
-          {% elif export_blocked_effective or export_forecast_guard %}
+          {% elif (export_blocked_effective or export_forecast_guard) and not solar_surplus_bypass %}
             0
           {% elif (not bypass_min_soc) and battery_soc <= export_min_soc and not (morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw)) %}
             0
