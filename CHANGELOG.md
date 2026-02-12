@@ -1,0 +1,140 @@
+# Changelog
+
+All notable changes to the SigEnergy Solar Import & Export Control automation will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+## [Unreleased]
+
+### Changed
+- Ongoing monitoring of solar_surplus_bypass thresholds (2× battery may need adjustment)
+- Ongoing monitoring of full_battery_pv_export behavior
+
+---
+
+## [2.0.0] - 2026-02-12
+
+### Added
+- **Configurable Forecast Safety Margins** - Two grouped settings replace 7+ hardcoded margins
+  - `forecast_safety_charging` (default 1.25): Conservative for charge/dump decisions
+  - `forecast_safety_export` (default 1.1): Less conservative for export decisions
+  - Applied to: morning slow charge, morning dump, standby holdoff, export guards, daytime top-up
+- **Morning Dump Forecast Protection** - Dump now verifies sufficient solar to refill battery
+  - Calculates total PV from dump end until productive solar ends
+  - Prevents dumping when forecast insufficient (avoids expensive grid import)
+  - Consistent with morning slow charge forecast logic
+- **Full Battery PV Export Tracking** - New `full_battery_pv_export` variable
+  - Identifies when battery ≥99% with daytime PV surplus
+  - Enables clearer status messages
+
+### Fixed
+- **Solar Bypass Export Blocking** - Critical bug where excellent forecast (93kWh) couldn't export
+  - Root cause: `export_tier_limit` blocked at 40% battery before bypass logic ran
+  - Solution: Moved `solar_surplus_bypass` calculation before `export_tier_limit`
+  - Added bypass exception to `min_export_target_soc` check
+  - Commit: 304e147
+- **Full Battery Solar Curtailment** - Battery at 100% causing PV to curtail (1kW actual vs 15kW potential)
+  - Root cause: Chicken-and-egg loop - no export → PV curtailed → no surplus → no export
+  - Solution: Use `solar_potential_kw` (uncurtailed) when battery ≥99% to calculate export limit
+  - Prevents battery discharge while allowing full PV export
+  - Commit: 40a5701
+
+### Changed
+- **Status Message Clarity** - Distinguished full battery export from tier-based limits
+  - Was: "Exporting, Low tier 25.0kW @ 0.05c" (misleading - 25kW is not Low tier limit)
+  - Now: "Exporting, Full battery 11.5kW @ 0.05c" (clear - shows PV surplus and reason)
+  - Shows actual PV surplus (solar - load) instead of tier limit when battery full
+  - Commit: 9d1c144
+- **Improved Mode Status Messages** - Made special mode messages clearer
+  - "dump active" → "morning dump"
+  - "holdoff" → "charge holdoff"  
+  - "conditions" → "low forecast"
+  - Fixed FIT sensor unavailable handling (prevents "-999" display)
+  - Commit: e018902
+
+### Documentation
+- **Attribution Added** - Credited Martin Pascoe as original author
+  - Core automation logic and EMS control framework
+  - Forecast-based optimization and price-responsive scheduling
+  - Battery management and export control algorithms
+  - Commit: 59308f3
+- **Strategic Code Comments** - Added comments explaining complex logic
+  - `solar_surplus_bypass`: 2×/1.25× battery threshold explanation
+  - `full_battery_pv_export`: Emergency valve to prevent curtailment
+  - `export_tier_limit`: Tier selection and override logic
+  - PV surplus cap: Why `solar_potential_kw` vs `pv_kw` when battery full
+  - Forecast safety margins: Consequence-based margin selection
+  - Morning dump: Forecast protection calculation
+  - Commit: 76b59ac
+- **TODO.md Updated** - Comprehensive update for February 2026 changes
+  - Moved 6 completed items to bottom with detailed descriptions
+  - Updated pending items to reflect current code state
+  - Commit: 76b59ac
+- **README.md Created** - Comprehensive installation and configuration guide
+  - Installation instructions with blueprint import
+  - Configuration guide for all major settings
+  - Status message reference
+  - Troubleshooting guide
+- **CHANGELOG.md Created** - Version history tracking
+
+---
+
+## [1.1.0] - 2026-02-11
+
+### Fixed
+- **FREE Import Grid Capacity** - Fixed max() logic to respect grid capacity limit
+  - Changed line 2240 from using max() to `cap_total_import` only
+  - Prevents exceeding grid import capability during free/negative pricing
+- **Import Reason Priority** - Fixed demand window blocking not showing in status
+  - Reordered checks to prioritize demand window message
+- **Dead Code Removal** - Removed unreachable `elif price_is_negative` branch in import limit logic
+- **Division by Zero Protection** - Added minimum 0.1 for export SoC span calculation
+- **Positive FIT Override** - Fixed to allow battery discharge at positive FIT
+  - Removed daytime PV surplus check that was blocking valid discharge
+
+### Changed
+- **Increased Character Limits** - Reason text fields expanded from 95 to 250 characters
+  - Allows more detailed status messages without truncation
+- **Evening Mode Timing** - Made start time configurable
+  - New setting: `evening_mode_hours_before_sunset` (default 1.0 hours)
+  - Previously hardcoded to 1 hour before sunset
+
+---
+
+## [1.0.0] - Initial Release
+
+### Features
+- Core battery management with forecast-based optimization
+- Three-tier export control system (Low/Medium/High)
+- Price-responsive import control
+- Morning slow charge and morning dump modes
+- Evening export boost with aggressive floor
+- Standby holdoff (charge blocking when forecast sufficient)
+- Solar surplus bypass for excellent forecast days
+- PV safeguard to protect battery from over-exporting
+- Demand window import blocking
+- Cheap import daytime top-up
+- Comprehensive status messaging
+- Session tracking for import/export monitoring
+
+### Integrations
+- SigEnergy EMS control
+- Solcast solar forecasting
+- Amber Electric dynamic pricing
+
+---
+
+## Pending Development
+
+See [TODO.md](TODO.md) for:
+- Monitoring solar_surplus_bypass threshold behavior
+- Monitoring full_battery_pv_export emergency valve
+- Reviewing threshold values based on real-world usage
+
+---
+
+**Original Author:** Martin Pascoe  
+**Repository:** https://github.com/Belot77/Martys-Automation  
+**Maintained with community contributions**
