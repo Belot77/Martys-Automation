@@ -2069,6 +2069,12 @@ action:
           {{ pv_over_load and (start_ok or continue_ok) }}
         {% endif %}
 
+      full_battery_pv_export: >
+        {% set daytime = (not is_evening_or_night) and (not high_price) and (not export_spike_active) %}
+        {% set battery_full = battery_soc >= 99 %}
+        {% set has_pv_surplus = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
+        {{ daytime and battery_full and has_pv_surplus and feedin_price > 0 }}
+
       export_tier_limit: >
         {% set full_export_override = battery_soc >= max_battery_soc and not is_evening_or_night and ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
@@ -2314,6 +2320,9 @@ action:
           Export blocked, below {{ effective_floor | round(0) }}% target
         {% elif export_blocked_effective %}
           Export blocked, low forecast
+        {% elif full_battery_pv_export %}
+          {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          Exporting, Full battery {{ pv_surplus | round(1) }}kW @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% else %}
           {% set tier_cap = export_tier_limit | float(0) %}
           {% if tier_cap <= 0 %}
