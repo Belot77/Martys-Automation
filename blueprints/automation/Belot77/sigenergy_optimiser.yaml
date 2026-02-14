@@ -1517,42 +1517,34 @@ action:
           {# Only active after 5am - prevents activation at midnight #}
           {{ false }}
         {% else %}
-          {# Check within 2 hours of sunrise #}
-          {% set next_rising = state_attr(sun_entity_id,'next_rising') %}
-          {% if next_rising is none %}
+          {# Check time window: after sunrise (or after 5am) until target time (noon) #}
+          {% set is_after_sunrise = is_state(sun_entity_id,'above_horizon') %}
+          {% if not is_after_sunrise and now_dt.hour < 7 %}
+            {# Before sunrise and before 7am - wait for sunrise #}
+            {{ false }}
+          {% elif feedin_price <= (morning_slow_charge_min_feedin_price | float(0)) %}
             {{ false }}
           {% else %}
-            {% set now_ts = as_timestamp(now_dt) %}
-            {% set sunrise_ts = as_timestamp(next_rising) %}
-            {% if now_ts is none or sunrise_ts is none %}
-              {{ false }}
-            {% elif (sunrise_ts - now_ts) > 7200 %}
-              {# More than 2 hours before sunrise - too early #}
-              {{ false }}
-            {% elif feedin_price <= (morning_slow_charge_min_feedin_price | float(0)) %}
+            {# Check Forecast #}
+            {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
+            {% if forecasts is not iterable %}
               {{ false }}
             {% else %}
-              {# Check Forecast #}
-              {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
-           {% if forecasts is not iterable %}
-             {{ false }}
-           {% else %}
-             {% set target_ts = as_timestamp(target_dt) %}
-             {% set sunset_ts = morning_slow_charge_end_ts | float(0) %}
-             {% set ns = namespace(total_pv=0) %}
-             {% for f in forecasts %}
-               {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
-                 {% set f_ts = as_timestamp(f.period_start) %}
-                 {% if f_ts >= target_ts and f_ts < sunset_ts %}
-                   {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
-                 {% endif %}
-               {% endif %}
-             {% endfor %}
-             
-             {% set load_need = ((sunset_ts - target_ts) / 3600.0) * (morning_slow_charge_base_load_kw | float(0.5)) %}
-             {% set bat_need = battery_fill_need_kwh | float(0) %}
-             {{ ns.total_pv >= ((bat_need + load_need) * forecast_safety_charging) }}
-           {% endif %}
+              {% set target_ts = as_timestamp(target_dt) %}
+              {% set sunset_ts = morning_slow_charge_end_ts | float(0) %}
+              {% set ns = namespace(total_pv=0) %}
+              {% for f in forecasts %}
+                {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
+                  {% set f_ts = as_timestamp(f.period_start) %}
+                  {% if f_ts >= target_ts and f_ts < sunset_ts %}
+                    {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              
+              {% set load_need = ((sunset_ts - target_ts) / 3600.0) * (morning_slow_charge_base_load_kw | float(0.5)) %}
+              {% set bat_need = battery_fill_need_kwh | float(0) %}
+              {{ ns.total_pv >= ((bat_need + load_need) * forecast_safety_charging) }}
             {% endif %}
           {% endif %}
         {% endif %}
@@ -1822,6 +1814,33 @@ action:
           {% endif %}
         {% endif %}
 
+      productive_solar_end_ts: >
+        {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
+        {% set threshold_kw = productive_solar_threshold_kw | float(1.0) %}
+        {% set current_pv_kw = states(solar_power_now_sensor_entity) | float(0) %}
+        {% if forecasts is not iterable %}
+          {{ none }}
+        {% else %}
+          {% set now_ts = as_timestamp(now()) %}
+          {% set next_setting = state_attr(sun_entity_id,'next_setting') %}
+          {% set sunset_ts = as_timestamp(next_setting) if next_setting is not none else now_ts + 86400 %}
+          {% if current_pv_kw < threshold_kw %}
+            {{ now_ts }}
+          {% else %}
+            {% set ns = namespace(found_time=none) %}
+            {% for forecast in forecasts | reverse %}
+              {% if forecast is mapping and 'period_start' in forecast and 'pv_estimate' in forecast %}
+                {% set forecast_ts = as_timestamp(forecast.period_start) %}
+                {% set pv_kw = forecast.pv_estimate | float(0) %}
+                {% if forecast_ts <= sunset_ts and pv_kw >= threshold_kw and ns.found_time is none %}
+                  {% set ns.found_time = forecast_ts %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.found_time }}
+          {% endif %}
+        {% endif %}
+
       productive_solar_end_time: >
         {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
         {% set threshold_kw = productive_solar_threshold_kw | float(1.0) %}
@@ -1857,33 +1876,6 @@ action:
             {% else %}
               unknown
             {% endif %}
-          {% endif %}
-        {% endif %}
-
-      productive_solar_end_ts: >
-        {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
-        {% set threshold_kw = productive_solar_threshold_kw | float(1.0) %}
-        {% set current_pv_kw = states(solar_power_now_sensor_entity) | float(0) %}
-        {% if forecasts is not iterable %}
-          {{ none }}
-        {% else %}
-          {% set now_ts = as_timestamp(now()) %}
-          {% set next_setting = state_attr(sun_entity_id,'next_setting') %}
-          {% set sunset_ts = as_timestamp(next_setting) if next_setting is not none else now_ts + 86400 %}
-          {% if current_pv_kw < threshold_kw %}
-            {{ now_ts }}
-          {% else %}
-            {% set ns = namespace(found_time=none) %}
-            {% for forecast in forecasts | reverse %}
-              {% if forecast is mapping and 'period_start' in forecast and 'pv_estimate' in forecast %}
-                {% set forecast_ts = as_timestamp(forecast.period_start) %}
-                {% set pv_kw = forecast.pv_estimate | float(0) %}
-                {% if forecast_ts <= sunset_ts and pv_kw >= threshold_kw and ns.found_time is none %}
-                  {% set ns.found_time = forecast_ts %}
-                {% endif %}
-              {% endif %}
-            {% endfor %}
-            {{ ns.found_time }}
           {% endif %}
         {% endif %}
 
@@ -2107,12 +2099,14 @@ action:
           {{ pv_over_load and (start_ok or continue_ok) }}
         {% endif %}
 
+      export_high_price: "{{ feedin_price >= export_threshold_high }}"
+
       # Full Battery PV Export: Emergency valve to prevent solar curtailment when battery full.
       # When battery ≥99% with PV surplus during daytime, allow high export limit regardless
       # of FIT tier or SoC targets. Uses solar_potential_kw (uncurtailed) to calculate limit.
       # Prevents chicken-and-egg: no export → PV curtailed → no surplus → no export.
       full_battery_pv_export: >
-        {% set daytime = (not is_evening_or_night) and (not high_price) and (not export_spike_active) %}
+        {% set daytime = (not is_evening_or_night) and (not export_high_price) and (not export_spike_active) %}
         {% set battery_full = battery_soc >= 99 %}
         {% set has_pv_surplus = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {{ daytime and battery_full and has_pv_surplus and feedin_price > 0 }}
@@ -2155,8 +2149,6 @@ action:
             {{ export_limit_low + (frac * (export_limit_medium - export_limit_low)) }}
           {% endif %}
         {% endif %}
-
-      export_high_price: "{{ feedin_price >= export_threshold_high }}"
 
       export_blocked_for_forecast: >
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
