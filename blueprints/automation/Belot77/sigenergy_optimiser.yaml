@@ -2434,7 +2434,11 @@ action:
           {% set is_daytime = not (is_evening_or_night | bool(false)) %}
           {% set bypass_min_soc = high_price or spike or solar_surplus_bypass or positive_fit_override %}
           {% set min_grid_kw = min_grid_transfer_kw | float(0.5) %}
-          {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% if battery_soc >= 99 %}
+            {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% else %}
+            {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% endif %}
           {% set morning_slow_charge_allows_export = morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw) %}
           {% set effective_export_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
           {% if pv_surplus == 0 and is_daytime and not high_price and not spike and not evening_export_boost_active %}
@@ -2576,7 +2580,11 @@ action:
         {% elif desired_export_limit | float > 0 %}
           Command Discharging (PV First)
         {% elif (not export_blocked_for_forecast) and battery_soc > (export_min_soc + soc_hysteresis) %}
-          {% set pv_surplus_check = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% if battery_soc >= 99 %}
+            {% set pv_surplus_check = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% else %}
+            {% set pv_surplus_check = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+          {% endif %}
           {% set is_daytime_check = not (is_evening_or_night | bool(false)) %}
           {% if pv_surplus_check == 0 and is_daytime_check %}
             Maximum Self Consumption
