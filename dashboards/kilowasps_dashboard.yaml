@@ -1,0 +1,545 @@
+title: Kilo Wasps
+views:
+  - title: Dashboard
+    path: dashboard
+    icon: mdi:view-dashboard
+    type: panel
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: markdown
+            content: >
+              ## Kilo Wasps (Home Assistant)
+
+              Local replica of the Kilowasps layout using your Amber and Sigenergy entities.
+
+          - type: horizontal-stack
+            cards:
+              - type: grid
+                columns: 4
+                square: false
+                cards:
+                  - type: tile
+                    entity: sensor.amber_general_price
+                    name: Import Price
+                    icon: mdi:transmission-tower-import
+                  - type: tile
+                    entity: sensor.amber_feed_in_price
+                    name: Export Price
+                    icon: mdi:transmission-tower-export
+                  - type: tile
+                    entity: sensor.month_total
+                    name: Month Total
+                    icon: mdi:cash-multiple
+                  - type: tile
+                    entity: sensor.best_day
+                    name: Best Day
+                    icon: mdi:trophy
+              - type: entities
+                title: Live Snapshot
+                show_header_toggle: false
+                entities:
+                  - entity: sensor.best_day
+                  - entity: sensor.worst_day
+                  - entity: sensor.import
+                  - entity: sensor.export
+
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Net Position (This Month)
+              show_states: true
+              colorize_states: true
+            graph_span: 1month
+            span:
+              start: month
+            now:
+              show: true
+              label: now
+            apex_config:
+              chart:
+                height: 420
+              dataLabels:
+                enabled: false
+              xaxis:
+                type: datetime
+              stroke:
+                width: 2
+              legend:
+                show: true
+              grid:
+                strokeDashArray: 3
+              plotOptions:
+                bar:
+                  borderRadius: 3
+                  columnWidth: 60%
+                  colors:
+                    ranges:
+                      - from: -1000000
+                        to: -0.00001
+                        color: '#22c55e'
+                      - from: 0
+                        to: 1000000
+                        color: '#ef4444'
+            yaxis:
+              - id: dollars
+                apex_config:
+                  labels:
+                    formatter: |
+                      EVAL:function(val){ return "$" + Number(val).toFixed(2); }
+            series:
+              - entity: sensor.month_total
+                name: Daily Net $
+                yaxis_id: dollars
+                type: column
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.position || 0)]);
+              - entity: sensor.month_total
+                name: Cumulative Net $
+                yaxis_id: dollars
+                color: '#f59e0b'
+                type: line
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  let sum = 0;
+                  return daily.map((d) => {
+                    sum += Number(d.position || 0);
+                    return [new Date(d.date + 'T12:00:00').getTime(), sum];
+                  });
+
+  - title: Revenue & Spikes
+    path: profitable
+    icon: mdi:finance
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Export Revenue vs Net Daily Position
+            graph_span: 1month
+            span:
+              start: month
+            apex_config:
+              chart:
+                height: 320
+              xaxis:
+                type: datetime
+              legend:
+                show: true
+              stroke:
+                width: 2
+              grid:
+                strokeDashArray: 3
+            series:
+              - entity: sensor.month_total
+                name: Export $
+                type: line
+                color: '#22c55e'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.export_value || 0)]);
+              - entity: sensor.month_total
+                name: Daily Net $
+                type: column
+                color: '#f59e0b'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.position || 0)]);
+          - type: markdown
+            title: Spike Stats
+            content: >
+              {% set days = state_attr('sensor.month_total','recent_daily') or [] %}
+              {% set spike_threshold = 8 %}
+              {% set spikes = days | selectattr('export_value','ge',spike_threshold) | list %}
+              {% set spike_rev = spikes | map(attribute='export_value') | map('float') | sum %}
+              {% set all_rev = days | map(attribute='export_value') | map('float') | sum %}
+              {% if days | count == 0 %}
+              No daily export history found.
+              {% else %}
+              - Spike threshold: **${{ spike_threshold }}/day export revenue**
+              - Spike days: **{{ spikes | count }} / {{ days | count }}**
+              - Spike revenue: **${{ spike_rev | round(2) }}**
+              - Revenue from spikes: **{{ ((spike_rev / (all_rev if all_rev > 0 else 1)) * 100) | round(1) }}%**
+              {% endif %}
+          - type: markdown
+            title: Spike Days (Top Export Days)
+            content: |
+              {% set days = state_attr('sensor.month_total','recent_daily') or [] %}
+              {% set sorted = days | sort(attribute='export_value', reverse=true) %}
+              {% if sorted | count == 0 %}
+              No daily export history found in sensor.month_total.recent_daily.
+              {% else %}
+              | Date | Export $ | Net $ |
+              |---|---:|---:|
+              {% for d in sorted[:10] %}
+              | {{ d.date }} | {{ (d.export_value | float(0)) | round(2) }} | {{ (d.position | float(0)) | round(2) }} |
+              {% endfor %}
+              {% endif %}
+
+  - title: Export Brackets
+    path: brackets
+    icon: mdi:chart-box-outline
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: markdown
+            title: Export Bracket Summary (This Month)
+            content: |
+              {% set days = state_attr('sensor.month_total','recent_daily') or [] %}
+              {% if days | count == 0 %}
+              No daily data available yet.
+              {% else %}
+              {% set ns = namespace(top=0, mid=0, low=0, topv=0, midv=0, lowv=0) %}
+              {% for d in days %}
+                {% set v = d.export_value | float(0) %}
+                {% if v >= 8 %}
+                  {% set ns.top = ns.top + 1 %}
+                  {% set ns.topv = ns.topv + v %}
+                {% elif v >= 3 %}
+                  {% set ns.mid = ns.mid + 1 %}
+                  {% set ns.midv = ns.midv + v %}
+                {% else %}
+                  {% set ns.low = ns.low + 1 %}
+                  {% set ns.lowv = ns.lowv + v %}
+                {% endif %}
+              {% endfor %}
+
+              | Bracket | Rule (Export $/day) | Days | Total Export $ |
+              |---|---|---:|---:|
+              | High | >= 8.00 | {{ ns.top }} | {{ ns.topv | round(2) }} |
+              | Medium | 3.00 to 7.99 | {{ ns.mid }} | {{ ns.midv | round(2) }} |
+              | Low | < 3.00 | {{ ns.low }} | {{ ns.lowv | round(2) }} |
+              {% endif %}
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Daily Export $
+            graph_span: 1month
+            span:
+              start: month
+            apex_config:
+              chart:
+                height: 300
+              plotOptions:
+                bar:
+                  borderRadius: 4
+                  columnWidth: 62%
+              stroke:
+                width: 1
+              grid:
+                strokeDashArray: 3
+            series:
+              - entity: sensor.month_total
+                name: Export $
+                type: column
+                color: '#22c55e'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.export_value || 0)]);
+
+  - title: Price Timeline
+    path: prices
+    icon: mdi:chart-line
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Amber Price Timeline (48h)
+              show_states: true
+            graph_span: 48h
+            now:
+              show: true
+              label: now
+            apex_config:
+              chart:
+                height: 320
+              stroke:
+                width: 2
+              grid:
+                strokeDashArray: 3
+              yaxis:
+                - decimalsInFloat: 2
+                  title:
+                    text: c/kWh
+              annotations:
+                yaxis:
+                  - "y": 0
+                    borderColor: '#f59e0b'
+                    strokeDashArray: 3
+                    label:
+                      text: 0c
+                      style:
+                        color: '#000000'
+                        background: '#f59e0b'
+            series:
+              - entity: sensor.amber_general_price
+                name: Import Price (c/kWh)
+                color: '#ef4444'
+              - entity: sensor.amber_feed_in_price
+                name: Export Price (c/kWh)
+                color: '#22c55e'
+          - type: entities
+            title: Current Pricing
+            entities:
+              - entity: sensor.amber_general_price
+                name: Import Price
+              - entity: sensor.amber_feed_in_price
+                name: Export Price
+
+  - title: Monthly Summary
+    path: monthly
+    icon: mdi:calendar-month
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entities
+            title: Month KPIs
+            show_header_toggle: false
+            entities:
+              - entity: sensor.month_total
+                name: Month Total
+              - entity: sensor.best_day
+                name: Best Day
+              - entity: sensor.worst_day
+                name: Worst Day
+              - entity: sensor.import
+                name: Import (current)
+              - entity: sensor.export
+                name: Export (current)
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Daily Breakdown (This Month)
+            graph_span: 1month
+            span:
+              start: month
+            apex_config:
+              chart:
+                height: 320
+              stroke:
+                width: 2
+              grid:
+                strokeDashArray: 3
+              plotOptions:
+                bar:
+                  borderRadius: 3
+            series:
+              - entity: sensor.month_total
+                name: Import $
+                type: line
+                color: '#ef4444'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.import_value || 0)]);
+              - entity: sensor.month_total
+                name: Export $
+                type: line
+                color: '#22c55e'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.export_value || 0)]);
+              - entity: sensor.month_total
+                name: Net $
+                type: column
+                color: '#f59e0b'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.position || 0)]);
+
+  - title: Daily Summary
+    path: daily
+    icon: mdi:calendar-today
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Daily Net Position
+            graph_span: 14d
+            apex_config:
+              chart:
+                height: 300
+              plotOptions:
+                bar:
+                  borderRadius: 4
+                  columnWidth: 60%
+              grid:
+                strokeDashArray: 3
+            series:
+              - entity: sensor.month_total
+                name: Net $/day
+                type: column
+                color: '#f59e0b'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.position || 0)]);
+          - type: markdown
+            title: Latest 14 Days
+            content: |
+              {% set days = state_attr('sensor.month_total','recent_daily') or [] %}
+              {% if days | count == 0 %}
+              No daily history available.
+              {% else %}
+              | Date | Import $ | Export $ | Net $ |
+              |---|---:|---:|---:|
+              {% for d in (days | sort(attribute='date', reverse=true))[:14] %}
+              | {{ d.date }} | {{ (d.import_value | float(0)) | round(2) }} | {{ (d.export_value | float(0)) | round(2) }} | {{ (d.position | float(0)) | round(2) }} |
+              {% endfor %}
+              {% endif %}
+
+  - title: Usage Breakdown
+    path: usage
+    icon: mdi:transmission-tower
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Daily Import/Export $ (This Month)
+            graph_span: 1month
+            span:
+              start: month
+            apex_config:
+              chart:
+                height: 300
+              stroke:
+                width: 2
+              grid:
+                strokeDashArray: 3
+            series:
+              - entity: sensor.month_total
+                name: Import $
+                color: '#ef4444'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.import_value || 0)]);
+              - entity: sensor.month_total
+                name: Export $
+                color: '#22c55e'
+                data_generator: |
+                  const daily = entity.attributes?.recent_daily ?? [];
+                  return daily.map((d) => [new Date(d.date + 'T12:00:00').getTime(), Number(d.export_value || 0)]);
+          - type: entities
+            title: Usage Snapshot
+            entities:
+              - entity: sensor.import
+                name: Import
+              - entity: sensor.export
+                name: Export
+              - entity: sensor.month_total
+                name: Month Total
+          - type: history-graph
+            title: Import vs Export (48h)
+            hours_to_show: 48
+            refresh_interval: 60
+            entities:
+              - entity: sensor.import
+              - entity: sensor.export
+          - type: markdown
+            title: Net Direction (Today)
+            content: >
+              {% set imp = states('sensor.import') | float(0) %}
+              {% set exp = states('sensor.export') | float(0) %}
+              {% if exp > imp %}
+              Export-leading day: +{{ (exp - imp) | round(2) }} kWh.
+              {% elif imp > exp %}
+              Import-leading day: +{{ (imp - exp) | round(2) }} kWh.
+              {% else %}
+              Import/export currently balanced.
+              {% endif %}
+
+  - title: Leaderboard
+    path: leaderboard
+    icon: mdi:trophy-outline
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: markdown
+            title: Local Leaderboard
+            content: |
+              Global community leaderboard requires an external shared backend.
+
+              This local view ranks your own recent days.
+
+              {% set days = state_attr('sensor.month_total','recent_daily') or [] %}
+              {% set top = days | sort(attribute='position', reverse=true) %}
+              {% set low = days | sort(attribute='position') %}
+
+              {% if days | count == 0 %}
+              No daily history available.
+              {% else %}
+              ### Top 5 Net Days
+              | Date | Net $ |
+              |---|---:|
+              {% for d in top[:5] %}
+              | {{ d.date }} | {{ (d.position | float(0)) | round(2) }} |
+              {% endfor %}
+
+              ### Bottom 5 Net Days
+              | Date | Net $ |
+              |---|---:|
+              {% for d in low[:5] %}
+              | {{ d.date }} | {{ (d.position | float(0)) | round(2) }} |
+              {% endfor %}
+              {% endif %}
+
+  - title: Settings
+    path: settings
+    icon: mdi:cog-outline
+    type: panel
+    cards:
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entities
+            title: Amber & Control Settings
+            show_header_toggle: false
+            entities:
+              - entity: sensor.amber_general_price
+                name: Import Price Sensor
+              - entity: sensor.amber_feed_in_price
+                name: Export Price Sensor
+              - entity: number.sigen_plant_grid_export_limitation
+                name: Grid Export Limit
+              - entity: number.sigen_plant_pcs_import_limitation
+                name: PCS Import Limit
+              - entity: input_boolean.input_boolean_sigenergy_automated_export
+                name: Automated Export Flag
+              - entity: input_number.input_number_sigenergy_export_session_start_kwh
+                name: Export Session Start kWh
+              - entity: input_number.input_number_sigenergy_import_session_start_kwh
+                name: Import Session Start kWh
+          - type: markdown
+            title: Notes
+            content: >
+              This dashboard mirrors Kilo Wasps page structure using local Home Assistant entities.
+
+              If any entity is missing in your system, that row/card will show unavailable and can be swapped to your preferred entity.
