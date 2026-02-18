@@ -2434,6 +2434,7 @@ action:
           {% set is_daytime = not (is_evening_or_night | bool(false)) %}
           {% set bypass_min_soc = high_price or spike or solar_surplus_bypass or positive_fit_override %}
           {% set min_grid_kw = min_grid_transfer_kw | float(0.5) %}
+          {# Battery full curtailment guard: use uncurtailed solar potential so export can ramp when PV headroom increases. #}
           {% if battery_soc >= 99 %}
             {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
           {% else %}
@@ -2580,6 +2581,7 @@ action:
         {% elif desired_export_limit | float > 0 %}
           Command Discharging (PV First)
         {% elif (not export_blocked_for_forecast) and battery_soc > (export_min_soc + soc_hysteresis) %}
+          {# Keep mode fallback aligned with export gating: battery full uses solar potential, otherwise measured PV only. #}
           {% if battery_soc >= 99 %}
             {% set pv_surplus_check = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
           {% else %}

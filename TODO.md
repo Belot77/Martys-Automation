@@ -4,16 +4,16 @@
 
 ### SigEnergy Optimiser Enhancements
 
-- [ ] **Review solar_surplus_bypass thresholds (lines 2058-2072)**
+- [ ] **Review solar_surplus_bypass thresholds**
   - Requires 2× battery capacity forecast to START bypass (e.g., 80kWh for 40kWh battery)
   - Only 1.25× capacity to CONTINUE once active (50kWh)
   - High thresholds mean this activates only with excellent solar forecasts
   - Monitor: Does starting threshold need adjustment based on local conditions?
 
-- [ ] **Monitor full_battery_pv_export behavior (line 2059)**
+- [ ] **Monitor full_battery_pv_export behavior**
   - At 99% SoC with PV surplus, allows high export limit regardless of FIT tier
   - Prevents solar curtailment when battery full
-  - Uses solar_potential_kw (uncurtailed) to calculate export limit
+  - Uses solar_potential_kw (uncurtailed) in both export gating and mode fallback surplus checks when battery is full
   - Monitor: Verify it doesn't discharge battery unnecessarily
 
 ### Known Issues

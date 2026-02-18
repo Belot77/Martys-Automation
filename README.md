@@ -212,7 +212,11 @@ When solar forecast is exceptional (≥80kWh for 40kWh battery), bypasses normal
 - CONTINUE: 1.25× battery capacity (50kWh) - hysteresis prevents flapping
 
 ### Full Battery Emergency Valve
-At 99% SoC with PV surplus, allows high export limit regardless of FIT tier to prevent solar curtailment. Uses `solar_potential_kw` (uncurtailed potential) to calculate export limit.
+At 99% SoC with PV surplus, allows high export limit regardless of FIT tier to prevent solar curtailment.
+Uses `solar_potential_kw` (uncurtailed potential) in:
+- daytime export gating (`desired_export_limit` surplus checks)
+- daytime export cap when battery is full
+- mode fallback surplus check (`desired_ems_mode`)
 
 ### Forecast-Based Holdoff
 Blocks unnecessary grid import when solar forecast can naturally reach target SoC. Uses configurable safety margin (default 1.25×).
@@ -236,6 +240,7 @@ Blocks unnecessary grid import when solar forecast can naturally reach target So
 1. Check `full_battery_pv_export` is triggering (battery ≥99%)
 2. Verify FIT price is positive
 3. Check export limit and status message
+4. Confirm Solcast `power_now` sensor units are correct (W vs kW), since `solar_potential_kw` depends on accurate normalization
 
 ### Forecast Safety Margins
 - If importing too often: Decrease charging margin (e.g., 1.25 → 1.15)

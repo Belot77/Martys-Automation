@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
+  - Root cause: Early daytime `desired_export_limit` gate and `desired_ems_mode` fallback used measured `pv_kw`, which can be curtailed at 100% SoC
+  - Impact: System could stay in `Maximum Self Consumption` and not raise export after sun intensity increased
+  - Solution: At `battery_soc >= 99`, both branches now use `solar_potential_kw - load_kw` for surplus checks
+  - Result: Export can ramp correctly during curtailment conditions while preserving below-99% behavior
+  - Commit: 3246761
+
 ### Changed
 - Ongoing monitoring of solar_surplus_bypass thresholds (2× battery may need adjustment)
 - Ongoing monitoring of full_battery_pv_export behavior
