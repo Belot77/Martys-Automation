@@ -2471,122 +2471,127 @@ action:
         {% endif %}
 
       desired_export_limit: >
-        {% if feedin_price <= 0 %}
-          0
-        {% else %}
-          {% set high_price = export_high_price | bool(false) %}
-          {% set spike = export_spike_active | default(false) | bool(false) %}
-          {% set spike_full_power = export_spike_full_power | bool(false) %}
-          {% set is_daytime = not (is_evening_or_night | bool(false)) %}
-          {% set bypass_min_soc = high_price or spike or solar_surplus_bypass or positive_fit_override %}
-          {% set min_grid_kw = min_grid_transfer_kw | float(0.5) %}
-          {# Battery full curtailment guard: use uncurtailed solar potential so export can ramp when PV headroom increases. #}
-          {% if battery_soc >= 99 %}
-            {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
-          {% else %}
-            {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
-          {% endif %}
-          {% set morning_slow_charge_allows_export = morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw) %}
-          {% set effective_export_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
-          {% if pv_surplus == 0 and is_daytime and not high_price and not spike and not evening_export_boost_active %}
-           0
-          {% elif morning_dump_active %}
-            {{ morning_dump_limit }}
-          {% elif price_is_negative or feedin_is_negative %}
-            0
-          {% elif battery_soc < effective_export_floor and not within_morning_grace_period and not morning_slow_charge_allows_export and not solar_surplus_bypass %}
-            0
-          {% elif (export_blocked_effective or export_forecast_guard) and not solar_surplus_bypass %}
-            0
-          {% elif (not bypass_min_soc) and battery_soc <= export_min_soc and not (morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw)) %}
+          {# Battery Full Safeguard: block export if not enough forecast to reach 100% SoC by sunset #}
+          {% if battery_full_safeguard_block_export %}
             0
           {% else %}
-          {% set tier_cap = export_tier_limit | float(0) %}
-          {% if morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + 0.5) %}
-            {# During morning slow charge with excess PV, allow export up to PV surplus minus charge rate #}
-            {% set charge_and_min = (morning_slow_charge_rate_kw | float(2)) + min_grid_kw %}
-            {% set available_export = [pv_surplus - charge_and_min, 0] | max %}
-            {% set limit = [available_export, ess_max_discharge_kw] | min | round(1) %}
-            {% if limit <= 0 %}
+            {% if feedin_price <= 0 %}
               0
-            {% elif limit < min_grid_kw %}
-              {{ min_grid_kw | round(1) }}
             {% else %}
-              {{ limit }}
-            {% endif %}
-          {% elif tier_cap <= 0 %}
-            0
-          {% elif high_price or spike %}
-            {% if spike and spike_full_power %}
-              {% set limit_cap = [tier_cap, cap_total_import | float(0)] | max %}
-            {% else %}
-              {% set limit_cap = [tier_cap, export_limit_high | float(0)] | min %}
-            {% endif %}
-            {% set limit = [limit_cap, ess_max_discharge_kw] | min | round(1) %}
-            {% if limit <= 0 %}
-              0
-            {% elif limit < min_grid_kw %}
-              {{ min_grid_kw | round(1) }}
-            {% else %}
-              {{ limit }}
-            {% endif %}
-          {% elif positive_fit_override %}
-            {% set limit = [tier_cap, ess_max_discharge_kw] | min | round(1) %}
-            {% if limit <= 0 %}
-              0
-            {% elif limit < min_grid_kw %}
-              {{ min_grid_kw | round(1) }}
-            {% else %}
-              {{ limit }}
-            {% endif %}
-          {% else %}
-            {% set diff = (battery_soc | float(0)) - (export_min_soc | float(0)) %}
-            {% set span = [export_soc_span_dynamic | float(1), 0.1] | max %}
-            {% set scale_soc = [1.0, [(diff | float(0)) / (span | float(1)), 0] | max] | min %}
-            {% if export_solar_override %}
-              {% set surplus_kw = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
-              {% set override_cap = [surplus_kw, export_limit_high | float(0), export_tier_limit | float(0)] | min %}
-              {% set limit = [override_cap, ess_max_discharge_kw] | min | round(1) %}
-              {% if limit <= 0 %}
+              {% set high_price = export_high_price | bool(false) %}
+              {% set spike = export_spike_active | default(false) | bool(false) %}
+              {% set spike_full_power = export_spike_full_power | bool(false) %}
+              {% set is_daytime = not (is_evening_or_night | bool(false)) %}
+              {% set bypass_min_soc = high_price or spike or solar_surplus_bypass or positive_fit_override %}
+              {% set min_grid_kw = min_grid_transfer_kw | float(0.5) %}
+              {# Battery full curtailment guard: use uncurtailed solar potential so export can ramp when PV headroom increases. #}
+              {% if battery_soc >= 99 %}
+                {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+              {% else %}
+                {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+              {% endif %}
+              {% set morning_slow_charge_allows_export = morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw) %}
+              {% set effective_export_floor = (evening_aggressive_floor | float(35)) if evening_export_boost_active else min_export_target_soc %}
+              {% if pv_surplus == 0 and is_daytime and not high_price and not spike and not evening_export_boost_active %}
+               0
+              {% elif morning_dump_active %}
+                {{ morning_dump_limit }}
+              {% elif price_is_negative or feedin_is_negative %}
+                0
+              {% elif battery_soc < effective_export_floor and not within_morning_grace_period and not morning_slow_charge_allows_export and not solar_surplus_bypass %}
+                0
+              {% elif (export_blocked_effective or export_forecast_guard) and not solar_surplus_bypass %}
+                0
+              {% elif (not bypass_min_soc) and battery_soc <= export_min_soc and not (morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + min_grid_kw)) %}
                 0
               {% else %}
-                {{ limit }}
-              {% endif %}
-            {% else %}
-              {% set hours = hours_to_sunrise | float(1) %}
-              {% set discharge_window = [export_discharge_window_hours | float(3), 1] | max %}
-              {% set hours_div = [hours, discharge_window] | min %}
-              {% set headroom_kwh = ((diff | float(0)) / 100) * (battery_capacity_kwh | float(10)) %}
-              {% set safe_kw_base = (headroom_kwh | float(0)) / [hours_div, 1] | max %}
-              {% set boost = [1.5, 1 + (((tier_cap | float(0)) / (export_limit_high | float(1))) * 0.3)] | min %}
-              {% set safe_kw = (safe_kw_base | float(0)) * boost %}
-              {% set safe_cap = [(safe_kw | float(0)), (tier_cap | float(0))] | min %}
-              {% set raw_limit = (tier_cap | float(0)) * (scale_soc | float(0)) * 0.9 %}
-              {% set final_limit = [raw_limit, safe_cap] | min %}
-              {% set limit = [final_limit, ess_max_discharge_kw] | min | round(1) %}
-              {# PV Surplus Cap: During daytime normal operation, cap export to PV surplus.
-              When battery ≥99%: Use solar_potential_kw (uncurtailed) to open export path.
-              When battery <99%: Use actual pv_kw to avoid battery discharge.
-              Prevents battery drain at low prices while allowing full solar export when full. #}
-              {% if (not is_evening_or_night) and (not high_price and not spike) %}
-                {% if battery_soc >= 99 %}
-                  {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+              {% set tier_cap = export_tier_limit | float(0) %}
+              {% if morning_slow_charge_active and pv_surplus >= ((morning_slow_charge_rate_kw | float(2)) + 0.5) %}
+                {# During morning slow charge with excess PV, allow export up to PV surplus minus charge rate #}
+                {% set charge_and_min = (morning_slow_charge_rate_kw | float(2)) + min_grid_kw %}
+                {% set available_export = [pv_surplus - charge_and_min, 0] | max %}
+                {% set limit = [available_export, ess_max_discharge_kw] | min | round(1) %}
+                {% if limit <= 0 %}
+                  0
+                {% elif limit < min_grid_kw %}
+                  {{ min_grid_kw | round(1) }}
                 {% else %}
-                  {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                  {{ limit }}
                 {% endif %}
-                {% set limit = [(limit | float(0)), (pv_surplus | float(0))] | min %}
-              {% endif %}
-              {% if limit <= 0 %}
+              {% elif tier_cap <= 0 %}
                 0
-              {% elif limit < min_grid_kw %}
-                {{ min_grid_kw | round(1) }}
+              {% elif high_price or spike %}
+                {% if spike and spike_full_power %}
+                  {% set limit_cap = [tier_cap, cap_total_import | float(0)] | max %}
+                {% else %}
+                  {% set limit_cap = [tier_cap, export_limit_high | float(0)] | min %}
+                {% endif %}
+                {% set limit = [limit_cap, ess_max_discharge_kw] | min | round(1) %}
+                {% if limit <= 0 %}
+                  0
+                {% elif limit < min_grid_kw %}
+                  {{ min_grid_kw | round(1) }}
+                {% else %}
+                  {{ limit }}
+                {% endif %}
+              {% elif positive_fit_override %}
+                {% set limit = [tier_cap, ess_max_discharge_kw] | min | round(1) %}
+                {% if limit <= 0 %}
+                  0
+                {% elif limit < min_grid_kw %}
+                  {{ min_grid_kw | round(1) }}
+                {% else %}
+                  {{ limit }}
+                {% endif %}
               {% else %}
-                {{ limit }}
+                {% set diff = (battery_soc | float(0)) - (export_min_soc | float(0)) %}
+                {% set span = [export_soc_span_dynamic | float(1), 0.1] | max %}
+                {% set scale_soc = [1.0, [(diff | float(0)) / (span | float(1)), 0] | max] | min %}
+                {% if export_solar_override %}
+                  {% set surplus_kw = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                  {% set override_cap = [surplus_kw, export_limit_high | float(0), export_tier_limit | float(0)] | min %}
+                  {% set limit = [override_cap, ess_max_discharge_kw] | min | round(1) %}
+                  {% if limit <= 0 %}
+                    0
+                  {% else %}
+                    {{ limit }}
+                  {% endif %}
+                {% else %}
+                  {% set hours = hours_to_sunrise | float(1) %}
+                  {% set discharge_window = [export_discharge_window_hours | float(3), 1] | max %}
+                  {% set hours_div = [hours, discharge_window] | min %}
+                  {% set headroom_kwh = ((diff | float(0)) / 100) * (battery_capacity_kwh | float(10)) %}
+                  {% set safe_kw_base = (headroom_kwh | float(0)) / [hours_div, 1] | max %}
+                  {% set boost = [1.5, 1 + (((tier_cap | float(0)) / (export_limit_high | float(1))) * 0.3)] | min %}
+                  {% set safe_kw = (safe_kw_base | float(0)) * boost %}
+                  {% set safe_cap = [(safe_kw | float(0)), (tier_cap | float(0))] | min %}
+                  {% set raw_limit = (tier_cap | float(0)) * (scale_soc | float(0)) * 0.9 %}
+                  {% set final_limit = [raw_limit, safe_cap] | min %}
+                  {% set limit = [final_limit, ess_max_discharge_kw] | min | round(1) %}
+                  {# PV Surplus Cap: During daytime normal operation, cap export to PV surplus.
+                  When battery ≥99%: Use solar_potential_kw (uncurtailed) to open export path.
+                  When battery <99%: Use actual pv_kw to avoid battery discharge.
+                  Prevents battery drain at low prices while allowing full solar export when full. #}
+                  {% if (not is_evening_or_night) and (not high_price and not spike) %}
+                    {% if battery_soc >= 99 %}
+                      {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {% else %}
+                      {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {% endif %}
+                    {% set limit = [(limit | float(0)), (pv_surplus | float(0))] | min %}
+                  {% endif %}
+                  {% if limit <= 0 %}
+                    0
+                  {% elif limit < min_grid_kw %}
+                    {{ min_grid_kw | round(1) }}
+                  {% else %}
+                    {{ limit }}
+                  {% endif %}
+                {% endif %}
               {% endif %}
             {% endif %}
+            {% endif %}
           {% endif %}
-        {% endif %}
-        {% endif %}
 
       needs_ha_control_switch: >
         {{ auto_enable_ha_control and (not ha_control_enabled) and
