@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- **Battery Full Safeguard**
+  - New blueprint section to ensure battery is 100% SoC by configurable hours before sunset, using only PV (never grid import)
+  - Forecast-aware (Solcast), load/export aware, with user-settable forecast multiplier
+  - Blocks export and maximizes PV self-consumption if forecast is insufficient
+  - UI: Enable/disable, set hours-before-sunset, and forecast multiplier
+
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
   - Root cause: Early daytime `desired_export_limit` gate and `desired_ems_mode` fallback used measured `pv_kw`, which can be curtailed at 100% SoC

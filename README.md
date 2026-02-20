@@ -15,6 +15,8 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 - **Battery Preservation**: Ensures sufficient charge to reach sunrise, avoiding expensive grid imports
 - **Configurable Safety Margins**: Separate margins for charging vs export decisions based on consequence risk
 
+- **Battery Full Safeguard**: Ensures battery is charged to 100% SoC by a configurable number of hours before sunset, using only PV (never grid import). Forecast-aware with user-settable forecast multiplier for safety margin. If forecast is insufficient, maximizes PV self-consumption and blocks export until battery is full or sunset threshold is reached.
+
 ### Operating Modes
 
 #### Morning Management
@@ -25,6 +27,8 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 - **Solar Surplus Bypass**: When forecast is excellent (default 2× battery capacity, now fully configurable), bypass normal export restrictions
 - **Full Battery PV Export**: Emergency valve prevents solar curtailment when battery at 99%+
 - **PV Safeguard**: Protects battery from over-exporting when forecast insufficient
+
+- **Battery Full Safeguard**: New section in blueprint. Enable/disable, set hours-before-sunset, and forecast multiplier. Will block export and maximize PV self-consumption to reach 100% SoC before sunset, but never imports from grid. Forecast-aware (Solcast) and load/export aware.
 
 #### Evening/Night Optimization
 - **Evening Export Boost**: Aggressive evening export when tomorrow's forecast is strong
@@ -49,6 +53,16 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 - **SigEnergy** - Battery/EMS control and sensor data
 - **Solcast Solar** - PV forecast data (custom integration)
 - **Amber Electric** - Dynamic pricing data (Australia)
+
+### New Blueprint Inputs (Battery Full Safeguard)
+
+```yaml
+  battery_full_safeguard_enabled: # Enable/disable safeguard logic
+  battery_full_hours_before_sunset: # Hours before sunset by which battery must be 100% SoC
+  battery_full_forecast_multiplier: # Multiplier for PV forecast safety margin (e.g., 0.8 = 80%)
+```
+
+See blueprint UI for details.
 
 ### Required Helper Entities
 
