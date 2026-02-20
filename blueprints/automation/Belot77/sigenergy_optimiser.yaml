@@ -14,6 +14,13 @@ blueprint:
 
     Intelligent battery-preserving controller for SigEnergy EMS that prioritizes having enough battery to reach sunrise, avoids paid energy where possible, and earns from export/import opportunities without taking losses.
 
+    ## New in this version
+    - **Solar Surplus Bypass is now fully configurable:**
+      - Enable/disable the bypass logic
+      - Set custom forecast multipliers for when bypass starts and continues
+      - Defaults match previous behavior (2×/1.25× battery capacity)
+      - Find these options in the new "Solar Surplus Bypass" section of the blueprint UI
+
     ## Required helpers (create before use)
     - input_boolean: `input_boolean.sigenergy_automated_export`
     - input_number: `input_number.sigenergy_export_session_start_kwh`
@@ -1013,6 +1020,40 @@ blueprint:
               unit_of_measurement: h
               mode: box
 
+    solar_surplus_bypass_settings:
+      name: |
+        # Solar Surplus Bypass
+      description: Configure when strong forecast conditions can bypass normal export restrictions.
+      icon: mdi:solar-power-variant-outline
+      collapsed: true
+      input:
+        solar_surplus_bypass_enabled:
+          name: Enable Solar Surplus Bypass
+          description: Allow export safeguards to be bypassed when forecast and PV surplus conditions are very strong.
+          default: true
+          selector:
+            boolean: {}
+        solar_surplus_bypass_start_multiplier:
+          name: Start Forecast Multiplier
+          description: Start bypass when forecast remaining is at least this multiple of battery capacity.
+          default: 2.0
+          selector:
+            number:
+              min: 1.0
+              max: 5.0
+              step: 0.05
+              mode: box
+        solar_surplus_bypass_continue_multiplier:
+          name: Continue Forecast Multiplier
+          description: Keep bypass active while forecast remaining stays above this multiple of battery capacity.
+          default: 1.25
+          selector:
+            number:
+              min: 0.5
+              max: 5.0
+              step: 0.05
+              mode: box
+
     stability_hysteresis:
       name: |
         # Stability & Hysteresis
@@ -1233,6 +1274,9 @@ action:
       standby_holdoff_end_time: !input standby_holdoff_end_time
       morning_dump_enabled: !input morning_dump_enabled
       morning_dump_hours_before_sunrise: !input morning_dump_hours_before_sunrise
+      solar_surplus_bypass_enabled: !input solar_surplus_bypass_enabled
+      solar_surplus_bypass_start_multiplier: !input solar_surplus_bypass_start_multiplier
+      solar_surplus_bypass_continue_multiplier: !input solar_surplus_bypass_continue_multiplier
       soc_hysteresis: !input soc_hysteresis
       min_change_threshold: !input min_change_threshold
       min_grid_transfer_kw: !input min_grid_transfer_kw
@@ -2082,16 +2126,18 @@ action:
 
       # Solar Surplus Bypass: When forecast is excellent, bypass normal export restrictions
       # to allow full PV export even when battery is below target SoC.
-      # START threshold: 2× battery capacity (e.g., 80kWh for 40kWh battery)
-      # CONTINUE threshold: 1.25× battery (50kWh) - hysteresis prevents flapping
+      # START threshold: configurable multiplier × battery capacity
+      # CONTINUE threshold: configurable multiplier × battery capacity (hysteresis)
       # Only active when PV production exceeds load by meaningful amount
       solar_surplus_bypass: >
-        {% if morning_slow_charge_active | bool(false) %}
+        {% if not (solar_surplus_bypass_enabled | bool(true)) %}
+          {{ false }}
+        {% elif morning_slow_charge_active | bool(false) %}
           {{ false }}
         {% else %}
           {% set cap = battery_capacity_kwh | float(10) %}
-          {% set start_thresh = cap * 2 %}
-          {% set stop_thresh = cap * 1.25 %}
+          {% set start_thresh = cap * (solar_surplus_bypass_start_multiplier | float(2.0)) %}
+          {% set stop_thresh = cap * (solar_surplus_bypass_continue_multiplier | float(1.25)) %}
           {% set pv_over_load = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
           {% set start_ok = forecast_remaining >= start_thresh %}
           {% set continue_ok = forecast_remaining >= stop_thresh

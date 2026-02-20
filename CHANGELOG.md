@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Commit: 3246761
 
 ### Changed
-- Ongoing monitoring of solar_surplus_bypass thresholds (2× battery may need adjustment)
+- Solar Surplus Bypass thresholds are now fully configurable via blueprint inputs (enable/disable, start/continue multipliers)
+- Added dedicated Solar Surplus Bypass section to blueprint UI
 - Ongoing monitoring of full_battery_pv_export behavior
 
 ---
