@@ -1,0 +1,1003 @@
+views:
+  - type: sections
+    max_columns: 4
+    title: Solar
+    path: solar
+    icon: mdi:solar-power-variant
+    sections:
+      - type: grid
+        columns: 2
+        cards:
+          - type: custom:apexcharts-card
+            update_interval: 30s
+            header:
+              show: true
+              show_states: true
+              colorize_states: true
+            graph_span: 1d
+            span:
+              start: day
+            now:
+              show: true
+              label: now
+            apex_config:
+              legend:
+                show: true
+                labels:
+                  colors: '#ffffff'
+              dataLabels:
+                enabled: true
+              chart:
+                background: '#1C1C1C'
+                height: 320px
+                zoom:
+                  enabled: true
+                  type: x
+                  autoScaleYaxis: true
+                toolbar:
+                  show: true
+                  tools:
+                    zoom: true
+                    zoomin: true
+                    zoomout: true
+                    pan: true
+                    reset: true
+                    download: true
+                    export:
+                      png:
+                        filename: chart-export
+                        width: 1200
+              xaxis:
+                labels:
+                  style:
+                    colors: '#FFFFFF'
+            yaxis:
+              - id: pv
+                apex_config:
+                  tickAmount: 8
+                  labels:
+                    style:
+                      colors: '#FFFFFF'
+              - id: battery
+                apex_config:
+                  tickAmount: 8
+                  labels:
+                    style:
+                      colors: '#FFFFFF'
+                min: 0
+                max: 100
+                opposite: true
+              - id: horizon
+                min: 0
+                max: 1
+                show: false
+            all_series_config:
+              stroke_width: 2
+            series:
+              - entity: sensor.sigen_plant_battery_state_of_charge
+                name: Battery
+                yaxis_id: battery
+                color: '#2196F3'
+                type: area
+                stroke_width: 2
+                opacity: 0.25
+                group_by:
+                  duration: 5min
+                  func: last
+                statistics:
+                  type: mean
+                  period: 5minute
+                extend_to: false
+                show:
+                  extremas: true
+              - entity: input_number.battery_min_soc_to_last_till_sunrise
+                name: Min SoC
+                yaxis_id: battery
+                color: '#43B3AE'
+                type: line
+                unit: '%'
+                stroke_width: 2
+                opacity: 0.75
+                group_by:
+                  duration: 5min
+                  func: last
+                extend_to: false
+                show:
+                  extremas: false
+              - entity: sensor.sigen_plant_pv_power
+                name: PV Output
+                yaxis_id: pv
+                type: area
+                color: '#FF9800'
+                curve: monotoneCubic
+                stroke_width: 0
+                opacity: 0.35
+                extend_to: false
+                show:
+                  extremas: true
+                group_by:
+                  duration: 5min
+                  func: last
+                statistics:
+                  type: mean
+                  period: 5minute
+              - entity: sensor.solcast_pv_forecast_forecast_today
+                name: PV Forecast (Chart)
+                yaxis_id: pv
+                color: '#B0BEC5'
+                opacity: 0.15
+                type: area
+                stroke_width: 0
+                curve: monotoneCubic
+                show:
+                  in_header: false
+                  in_legend: false
+                  legend_value: false
+                  extremas: false
+                statistics:
+                  type: mean
+                  period: 5minute
+                data_generator: |
+                  return entity.attributes.detailedForecast.map(d => {
+                    return [new Date(d.period_start).getTime(), d.pv_estimate];
+                  });
+              - entity: sensor.solcast_pv_forecast_power_now
+                name: PV Forecast
+                unit: kW
+                transform: return x / 1000;
+                yaxis_id: pv
+                type: line
+                stroke_width: 0
+                color: '#B0BEC5'
+                show:
+                  in_chart: true
+                  in_header: true
+                  in_legend: true
+                  extremas: false
+                group_by:
+                  duration: 5min
+                  func: last
+                statistics:
+                  type: mean
+                  period: 5minute
+              - entity: sensor.sigen_plant_grid_import_power
+                name: Grid Import
+                yaxis_id: pv
+                type: area
+                color: '#F44336'
+                group_by:
+                  duration: 5min
+                  func: avg
+                extend_to: false
+              - entity: sensor.sigen_plant_grid_export_power
+                name: Grid Export
+                transform: return x * -1
+                yaxis_id: pv
+                type: area
+                curve: monotoneCubic
+                color: '#4CAF50'
+                opacity: 0.25
+                group_by:
+                  duration: 5min
+                  func: last
+                statistics:
+                  type: mean
+                  period: 5minute
+                extend_to: false
+              - entity: sensor.sigen_plant_consumed_power
+                name: Consumption
+                yaxis_id: pv
+                type: area
+                curve: monotoneCubic
+                color: '#9C27B0'
+                opacity: 0.25
+                group_by:
+                  duration: 5min
+                  func: last
+                statistics:
+                  type: mean
+                  period: 5minute
+                extend_to: false
+              - entity: sun.sun
+                name: Daylight
+                type: area
+                color: '#FFD700'
+                opacity: 0.05
+                stroke_width: 0
+                curve: stepline
+                yaxis_id: horizon
+                show:
+                  in_header: false
+                  in_legend: false
+                data_generator: >
+                  const a = hass.states['sun.sun'].attributes;
+
+                  const r = new Date(a.next_rising);
+
+                  const s = new Date(a.next_setting);
+
+                  const now = new Date();
+
+
+                  // if sunrise is "tomorrow", shift it back a day
+
+                  const rise = (r.getDate() === now.getDate()) ? r.getTime() :
+                  r.getTime() - 86400000;
+
+                  const set  = (s.getDate() === now.getDate()) ? s.getTime() :
+                  s.getTime() - 86400000;
+
+
+                  // return points: 0 until sunrise, 1 between rise→set, 0 after
+                  sunset
+
+                  return [
+                    [now.setHours(0,0,0,0), 0],
+                    [rise, 0],
+                    [rise, 1],
+                    [set, 1],
+                    [set, 0],
+                    [now.setHours(23,59,59,999), 0],
+                  ];
+            grid_options:
+              columns: 24
+          - type: custom:apexcharts-card
+            cache: true
+            update_interval: 10s
+            graph_span: 1d
+            span:
+              start: day
+            now:
+              show: true
+              label: now
+            apex_config:
+              dataLabels:
+                enabled: false
+              markers:
+                size: 0
+              chart:
+                background: '#1C1C1C'
+                height: 320px
+                zoom:
+                  enabled: true
+                  type: x
+                  autoScaleYaxis: true
+                toolbar:
+                  show: true
+                  tools:
+                    zoom: true
+                    zoomin: true
+                    zoomout: true
+                    pan: true
+                    reset: true
+                    download: true
+                    export:
+                      png:
+                        filename: chart-export
+                        width: 1200
+              annotations:
+                yaxis:
+                  - 'y': 0
+                    borderColor: '#FFFFFF'
+                    strokeDashArray: 0
+                    opacity: 0.7
+                    label:
+                      text: '0'
+                      style:
+                        color: '#FFFFFF'
+                        background: transparent
+            yaxis:
+              - id: price
+                apex_config:
+                  tickAmount: 8
+                  labels:
+                    style:
+                      colors: '#FFFFFF'
+              - id: pv
+                apex_config:
+                  tickAmount: 8
+                  labels:
+                    style:
+                      colors: '#FFFFFF'
+                min: 0
+                opposite: true
+              - id: horizon
+                min: 0
+                max: 1
+                show: false
+            series:
+              - entity: sensor.amber_general_price
+                name: General price (amber)
+                yaxis_id: price
+                unit: c/kWh
+                transform: return Number(x) * 100;
+                type: area
+                stroke_width: 2
+                opacity: 0.15
+                color: '#F44336'
+                group_by:
+                  duration: 5min
+                  func: last
+                extend_to: false
+                show:
+                  extremas: true
+              - entity: sensor.amber_general_forecast
+                name: General forecast
+                yaxis_id: price
+                unit: c/kWh
+                type: line
+                stroke_width: 1
+                opacity: 0.8
+                color: '#F44336'
+                show:
+                  in_header: false
+                  extremas: true
+                group_by:
+                  duration: 5min
+                statistics:
+                  type: mean
+                  period: 5minute
+                data_generator: |
+                  const fc = entity.attributes?.forecasts || [];
+                  return fc
+                    .map(f => [new Date(f.start_time).getTime(), Number(f.per_kwh) * 100])
+                    .filter(p => p[0] >= start.getTime() && p[0] <= end.getTime());
+              - entity: sensor.amber_feed_in_price
+                name: Feed-in price (amber)
+                yaxis_id: price
+                unit: c/kWh
+                transform: return Number(x) * 100;
+                type: area
+                stroke_width: 2
+                opacity: 0.15
+                color: '#4CAF50'
+                group_by:
+                  duration: 5min
+                  func: last
+                extend_to: false
+                show:
+                  extremas: true
+              - entity: sensor.amber_feed_in_forecast
+                name: Feed-in forecast
+                yaxis_id: price
+                unit: c/kWh
+                type: line
+                stroke_width: 1
+                opacity: 0.8
+                color: '#4CAF50'
+                show:
+                  in_header: false
+                  extremas: true
+                group_by:
+                  duration: 5min
+                statistics:
+                  type: mean
+                  period: 5minute
+                data_generator: |
+                  const fc = entity.attributes?.forecasts || [];
+                  return fc
+                    .map(f => [new Date(f.start_time).getTime(), Number(f.per_kwh) * 100])
+                    .filter(p => p[0] >= start.getTime() && p[0] <= end.getTime());
+              - entity: sun.sun
+                name: Daylight
+                type: area
+                color: '#FFD700'
+                opacity: 0.05
+                stroke_width: 0
+                curve: stepline
+                yaxis_id: horizon
+                show:
+                  in_header: false
+                  in_legend: false
+                data_generator: >
+                  const a = hass.states['sun.sun'].attributes;
+
+                  const r = new Date(a.next_rising);
+
+                  const s = new Date(a.next_setting);
+
+                  const now = new Date();
+
+
+                  // if sunrise is "tomorrow", shift it back a day
+
+                  const rise = (r.getDate() === now.getDate()) ? r.getTime() :
+                  r.getTime() - 86400000;
+
+                  const set  = (s.getDate() === now.getDate()) ? s.getTime() :
+                  s.getTime() - 86400000;
+
+
+                  // return points: 0 until sunrise, 1 between rise→set, 0 after
+                  sunset
+
+                  return [
+                    [now.setHours(0,0,0,0), 0],
+                    [rise, 0],
+                    [rise, 1],
+                    [set, 1],
+                    [set, 0],
+                    [now.setHours(23,59,59,999), 0],
+                  ];
+              - entity: sensor.solcast_pv_forecast_forecast_today
+                name: PV Forecast (Chart)
+                yaxis_id: pv
+                color: '#B0BEC5'
+                opacity: 0.15
+                type: area
+                stroke_width: 0
+                curve: monotoneCubic
+                show:
+                  in_header: false
+                  in_legend: false
+                  legend_value: false
+                  extremas: false
+                statistics:
+                  type: mean
+                  period: 5minute
+                data_generator: |
+                  return entity.attributes.detailedForecast.map(d => {
+                    return [new Date(d.period_start).getTime(), d.pv_estimate];
+                  });
+            grid_options:
+              columns: 24
+          - type: entities
+            entities:
+              - entity: number.sigen_plant_grid_export_limitation
+              - entity: number.sigen_plant_grid_import_limitation
+              - entity: number.sigen_plant_pcs_export_limitation
+              - entity: number.sigen_plant_pcs_import_limitation
+              - entity: number.sigen_plant_pv_max_power_limit
+              - entity: number.sigen_plant_ess_max_charging_limit
+              - entity: number.sigen_plant_ess_max_discharging_limit
+            grid_options:
+              columns: 20
+              rows: auto
+        column_span: 2
+      - type: grid
+        cards:
+          - type: heading
+            icon: mdi:home-lightning-bolt
+            heading: Stats
+            heading_style: subtitle
+          - type: entities
+            entities:
+              - entity: sensor.sigen_plant_battery_state_of_charge
+                name: Battery SoC
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " ({% set cap = states('sensor.sigen_plant_rated_energy_capacity')|float(0) %}{% set cur = (states(config.entity)|float(0)/100*cap)|round(1) %}{% set pwr = states('sensor.sigen_plant_battery_power')|float(0) %}{% if pwr >= 0 %}Avail: {{ cur }} / Req: {{ (cap - cur)|round(1) }}{% else %}Remaining: {{ cur }}{% endif %} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        --row-bg:
+                          {% set perc = states(config.entity)|float(0) %}
+                          {% if perc >= 75 %} {% set bar = '76,175,80' %}
+                          {% elif perc >= 59 %} {% set bar = '139,195,74' %}
+                          {% elif perc >= 44 %} {% set bar = '205,220,57' %}
+                          {% elif perc >= 24 %} {% set bar = '255,193,7' %}
+                          {% elif perc >= 9 %} {% set bar = '255,152,0' %}
+                          {% else %} {% set bar = '244,67,54' %}
+                          {% endif %}
+                          linear-gradient(to right,
+                            rgba({{bar}},0.85) 0%,
+                            rgba({{bar}},0.85) {{ perc }}%,
+                            rgba({{bar}},0.00) {{ perc }}%,
+                            rgba({{bar}},0.00) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+              - entity: sensor.sigen_plant_battery_power
+                name: Discharge/Charge
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " ({% set chg = states('sensor.sigen_plant_daily_battery_charge_energy')|float(0) %}{% set dch = states('sensor.sigen_plant_daily_battery_discharge_energy')|float(0) %}-{{ chg|round(0) }}/+{{ dch|round(0) }}, Total {{ (chg + dch)|round(0) }} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        position: relative;
+                        --p5: 10%;
+                        --p15: 30%;
+                        --blend: 5%;
+                        --neg3: #F44336;
+                        --neg2: #FF9800;
+                        --neg1: #FFC107;
+                        --pos1: #CDDC39;
+                        --pos2: #8BC34A;
+                        --pos3: #4CAF50;
+                        --row-bg:
+                          linear-gradient(to right,
+                            transparent calc(50% - 0.5px),
+                            rgba(255,255,255,0.35) calc(50% - 0.5px),
+                            rgba(255,255,255,0.35) calc(50% + 0.5px),
+                            transparent calc(50% + 0.5px)
+                          ),
+                          linear-gradient(to right,
+                            var(--neg3) 0%,
+                            var(--neg3) calc(50% - var(--p15) - var(--blend)),
+                            var(--neg2) calc(50% - var(--p15) + var(--blend)),
+                            var(--neg2) calc(50% - var(--p5) - var(--blend)),
+                            var(--neg1) calc(50% - var(--p5) + var(--blend)),
+                            var(--neg1) 50%,
+                            var(--pos1) 50%,
+                            var(--pos1) calc(50% + var(--p5) - var(--blend)),
+                            var(--pos2) calc(50% + var(--p5) + var(--blend)),
+                            var(--pos2) calc(50% + var(--p15) - var(--blend)),
+                            var(--pos3) calc(50% + var(--p15) + var(--blend)),
+                            var(--pos3) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+                      hui-generic-entity-row::before {
+                        content: "";
+                        position: absolute;
+                        top: 4px;
+                        bottom: 4px;
+                        {% set uom = state_attr(config.entity,'unit_of_measurement') %}
+                        {% set raw = states(config.entity)|float(0) %}
+                        {% set v = (raw / 1000) if uom == 'W' else raw %}
+                        {% set min_v = -25 %}
+                        {% set max_v = 25 %}
+                        {% set vc = [ [v, max_v]|min, min_v ]|max %}
+                        {% set pos = ((vc - min_v) / (max_v - min_v) * 100) %}
+                        left: {{ pos }}%;
+                        width: 6px;
+                        transform: translateX(-50%);
+                        /* Adjusted opacity to 0.25 (75% transparent) */
+                        background: rgba(10,10,10,0.5);
+                        border-radius: 999px;
+                        pointer-events: none;
+                        z-index: 1;
+                      }
+              - entity: sensor.sigen_plant_consumed_power
+                name: Power Consumption
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " (Total: {{ states('sensor.sigen_plant_daily_load_consumption') | float(0) | round(1) }} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        --row-bg:
+                          {% set uom = state_attr(config.entity,'unit_of_measurement') %}
+                          {% set raw = states(config.entity)|float(0) %}
+                          {% set kw = (raw / 1000) if uom == 'W' else raw %}
+                          {% set max_kw = 25 %}
+                          {% set perc = (kw / max_kw * 100) %}
+                          {% if perc < 0 %}{% set perc = 0 %}{% endif %}
+                          {% if perc > 100 %}{% set perc = 100 %}{% endif %}
+                          {% if perc >= 85 %} {% set bar = '244,67,54' %}
+                          {% elif perc >= 75 %} {% set bar = '255,152,0' %}
+                          {% elif perc >= 60 %} {% set bar = '255,193,7' %}
+                          {% elif perc >= 50 %} {% set bar = '205,220,57' %}
+                          {% else %} {% set bar = '76,175,80' %}
+                          {% endif %}
+                          linear-gradient(to right,
+                            rgba({{bar}},0.85) 0%,
+                            rgba({{bar}},0.85) {{ perc }}%,
+                            rgba({{bar}},0.00) {{ perc }}%,
+                            rgba({{bar}},0.00) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+              - entity: sensor.sigen_plant_pv_power
+                name: Solar Output
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " (Remaining: {{ states('sensor.solcast_pv_forecast_forecast_remaining_today') | float(0) | round(1) }} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        --row-bg:
+                          {% set uom = state_attr(config.entity,'unit_of_measurement') %}
+                          {% set raw = states(config.entity)|float(0) %}
+                          {% set v = (raw / 1000) if uom == 'W' else raw %}
+                          {% set max_v = 25 %}
+                          {% set perc = (v / max_v * 100) %}
+                          {% if perc < 0 %}{% set perc = 0 %}{% endif %}
+                          {% if perc > 100 %}{% set perc = 100 %}{% endif %}
+                          {% if perc >= 75 %} {% set bar = '76,175,80' %}
+                          {% elif perc >= 59 %} {% set bar = '139,195,74' %}
+                          {% elif perc >= 44 %} {% set bar = '205,220,57' %}
+                          {% elif perc >= 24 %} {% set bar = '255,193,7' %}
+                          {% elif perc >= 9 %} {% set bar = '255,152,0' %}
+                          {% else %} {% set bar = '244,67,54' %}
+                          {% endif %}
+                          linear-gradient(to right,
+                            rgba({{bar}},0.85) 0%,
+                            rgba({{bar}},0.85) {{ perc }}%,
+                            rgba({{bar}},0.00) {{ perc }}%,
+                            rgba({{bar}},0.00) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+              - entity: sensor.sigen_plant_grid_import_power
+                name: Grid Import
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " (Total: {{ states('sensor.sigen_plant_daily_grid_import_energy') | float(0) | round(1) }} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        --row-bg:
+                          {% set uom = state_attr(config.entity,'unit_of_measurement') %}
+                          {% set raw = states(config.entity)|float(0) %}
+                          {% set v = (raw / 1000) if uom == 'W' else raw %}
+                          {% set max_v = 30 %}
+                          {% set perc = (v / max_v * 100) %}
+                          {% if perc < 0 %}{% set perc = 0 %}{% endif %}
+                          {% if perc > 100 %}{% set perc = 100 %}{% endif %}
+                          {% if perc >= 85 %} {% set bar = '244,67,54' %}
+                          {% elif perc >= 75 %} {% set bar = '255,152,0' %}
+                          {% elif perc >= 60 %} {% set bar = '255,193,7' %}
+                          {% elif perc >= 50 %} {% set bar = '205,220,57' %}
+                          {% else %} {% set bar = '76,175,80' %}
+                          {% endif %}
+                          linear-gradient(to right,
+                            rgba({{bar}},0.85) 0%,
+                            rgba({{bar}},0.85) {{ perc }}%,
+                            rgba({{bar}},0.00) {{ perc }}%,
+                            rgba({{bar}},0.00) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+              - entity: sensor.sigen_plant_grid_export_power
+                name: Grid Export
+                card_mod:
+                  style:
+                    hui-generic-entity-row$: |
+                      .info::after {
+                        content: " (Total: {{ states('sensor.sigen_plant_daily_grid_export_energy') | float(0) | round(1) }} kWh)";
+                      }
+                    .: |
+                      hui-generic-entity-row {
+                        --row-bg:
+                          {% set uom = state_attr(config.entity,'unit_of_measurement') %}
+                          {% set raw = states(config.entity)|float(0) %}
+                          {% set v = (raw / 1000) if uom == 'W' else raw %}
+                          {% set max_v = 30 %}
+                          {% set perc = (v / max_v * 100) %}
+                          {% if perc < 0 %}{% set perc = 0 %}{% endif %}
+                          {% if perc > 100 %}{% set perc = 100 %}{% endif %}
+                          {% if perc >= 75 %} {% set bar = '76,175,80' %}
+                          {% elif perc >= 59 %} {% set bar = '139,195,74' %}
+                          {% elif perc >= 44 %} {% set bar = '205,220,57' %}
+                          {% elif perc >= 24 %} {% set bar = '255,193,7' %}
+                          {% elif perc >= 9 %} {% set bar = '255,152,0' %}
+                          {% else %} {% set bar = '244,67,54' %}
+                          {% endif %}
+                          linear-gradient(to right,
+                            rgba({{bar}},0.85) 0%,
+                            rgba({{bar}},0.85) {{ perc }}%,
+                            rgba({{bar}},0.00) {{ perc }}%,
+                            rgba({{bar}},0.00) 100%
+                          ),
+                          rgba(0,0,0,0.22);
+                      }
+            card_mod:
+              style:
+                hui-sensor-entity-row:
+                  $: |
+                    hui-generic-entity-row {
+                      --bw: 2px;
+                      padding: 0px 16px;
+                      border-radius: 8px;
+                      border: none !important;
+                      box-shadow: inset 0 0 0 var(--bw) var(--divider-color);
+                      position: relative;
+                      overflow: hidden;
+                      isolation: isolate;
+                      font-size: 0.9rem;
+                    }
+
+                    hui-generic-entity-row .info {
+                      font-size: 0.9rem;
+                    }
+
+                    hui-generic-entity-row .info::after {
+                      font-size: 0.85em;
+                    }
+
+                    hui-generic-entity-row .value {
+                      font-size: 0.9rem;
+                    }
+                    hui-generic-entity-row::after {
+                      content: "";
+                      position: absolute;
+                      top: var(--bw);
+                      bottom: var(--bw);
+                      left: var(--bw);
+                      right: var(--bw);
+                      border-radius: calc(8px - var(--bw));
+                      background: var(--row-bg, rgba(0,0,0,0.22));
+                      pointer-events: none;
+                      z-index: -1;
+                    }
+                    hui-generic-entity-row * {
+                      position: relative;
+                      z-index: 1;
+                      opacity: 1 !important;
+                    }
+                    ha-state-icon, ha-icon {
+                      color: white !important;
+                      opacity: 1 !important;
+                    }
+                .: |
+                  .card-content { background: var(--ha-color); }
+                  ha-card {
+                    color: white;
+                    --card-mod-icon-color: white;
+                    --mdc-icon-size: 20px;
+                    font-weight: bold;
+                    --primary-text-color: white;
+                    --secondary-text-color: rgba(255,255,255,0.9);
+                    --paper-item-icon-color: white;
+                  }
+          - type: markdown
+            content: >-
+              {% set reason = states('input_text.sigenergy_reason') %} {% if
+              reason in ['unknown','unavailable','none',''] %} Uunavailable {%
+              else %} {{ reason }} {% endif %}
+          - type: heading
+            icon: mdi:currency-usd
+            heading: Amber
+            heading_style: subtitle
+          - type: grid
+            columns: 3
+            square: false
+            cards:
+              - type: custom:button-card
+                entity: sensor.amber_general_price
+                name: General Price
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - font-weight: bold
+                    - color: |
+                        [[[
+                          var v = parseFloat(entity.state);
+                          if (v < 0) return 'var(--success-color)';
+                          if (v <= 0.10) return 'var(--warning-color)';
+                          return 'var(--error-color)';
+                        ]]]
+                state_display: |
+                  [[[ 
+                    var v = parseFloat(entity.state);
+                    var display = v < 1 ? (v * 100).toFixed(0) + 'c' : '$' + v.toFixed(2);
+                    return display + (entity.attributes.estimate ? '*' : ''); 
+                  ]]]
+              - type: custom:button-card
+                entity: sensor.amber_general_forecast
+                name: Gen Forecasts
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - font-weight: bold
+                state_display: |
+                  [[[
+                    if (!entity.attributes.forecasts) return entity.state;
+                    var f = entity.attributes.forecasts;
+                    
+                    function formatVal(v) {
+                      return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
+                    }
+
+                    function getColor(val) {
+                      if (val < 0) return 'var(--success-color)';
+                      if (val <= 0.10) return 'var(--warning-color)';
+                      return 'var(--error-color)';
+                    }
+
+                    return `<span style="color: ${getColor(f[0].per_kwh)}">${formatVal(f[0].per_kwh)}</span>` +
+                           ` <span style="color: var(--primary-text-color)">|</span> ` +
+                           `<span style="color: ${getColor(f[1].per_kwh)}">${formatVal(f[1].per_kwh)}</span>` +
+                           ` <span style="color: var(--primary-text-color)">|</span> ` +
+                           `<span style="color: ${getColor(f[2].per_kwh)}">${formatVal(f[2].per_kwh)}</span>`;
+                  ]]]
+              - type: custom:button-card
+                entity: sensor.amber_general_price_descriptor
+                name: General Descriptor
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+              - type: custom:button-card
+                entity: sensor.amber_feed_in_price
+                name: Feed-in Price
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - font-weight: bold
+                    - color: |
+                        [[[
+                          var v = parseFloat(entity.state);
+                          if (v < 0) return 'var(--error-color)';
+                          if (v <= 0.10) return 'var(--warning-color)';
+                          return 'var(--success-color)';
+                        ]]]
+                state_display: |
+                  [[[ 
+                    var v = parseFloat(entity.state);
+                    var display = v < 1 ? (v * 100).toFixed(0) + 'c' : '$' + v.toFixed(2);
+                    return display + (entity.attributes.estimate ? '*' : ''); 
+                  ]]]
+              - type: custom:button-card
+                entity: sensor.amber_feed_in_forecast
+                name: FiT Forecasts
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - font-weight: bold
+                state_display: |
+                  [[[
+                    if (!entity.attributes.forecasts) return entity.state;
+                    var f = entity.attributes.forecasts;
+
+                    function formatVal(v) {
+                      return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
+                    }
+
+                    function getColorFiT(val) {
+                      if (val < 0) return 'var(--error-color)';
+                      if (val <= 0.10) return 'var(--warning-color)';
+                      return 'var(--success-color)';
+                    }
+
+                    return `<span style="color: ${getColorFiT(f[0].per_kwh)}">${formatVal(f[0].per_kwh)}</span>` +
+                           ` <span style="color: var(--primary-text-color)">|</span> ` +
+                           `<span style="color: ${getColorFiT(f[1].per_kwh)}">${formatVal(f[1].per_kwh)}</span>` +
+                           ` <span style="color: var(--primary-text-color)">|</span> ` +
+                           `<span style="color: ${getColorFiT(f[2].per_kwh)}">${formatVal(f[2].per_kwh)}</span>`;
+                  ]]]
+              - type: custom:button-card
+                entity: sensor.amber_feed_in_price_descriptor
+                name: Feed-in Descriptor
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+              - type: custom:button-card
+                entity: binary_sensor.amber_price_spike
+                name: Spike
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - color: >-
+                        [[[ return entity.state === 'on' ? 'var(--error-color)'
+                        : 'var(--primary-text-color)'; ]]]
+              - type: custom:button-card
+                entity: binary_sensor.amber_demand_window
+                name: Demand Window
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - color: >-
+                        [[[ return entity.state === 'on' ? 'var(--error-color)'
+                        : 'var(--primary-text-color)'; ]]]
+              - type: custom:button-card
+                entity: sensor.solcast_pv_forecast_forecast_today
+                name: Solar Next 1.5h
+                show_icon: false
+                show_state: true
+                styles:
+                  card:
+                    - padding: 6px
+                  state:
+                    - font-weight: bold
+                state_display: |
+                  [[[
+                    var now = new Date();
+                    var forecast = entity.attributes.detailedForecast;
+                    if (!forecast) return "N/A";
+                    var futureForecasts = forecast.filter(d => new Date(d.period_start) > now);
+                    if (futureForecasts.length >= 3) {
+                      return futureForecasts[0].pv_estimate.toFixed(1) + ' | ' + 
+                             futureForecasts[1].pv_estimate.toFixed(1) + ' | ' + 
+                             futureForecasts[2].pv_estimate.toFixed(1);
+                    }
+                    return "No Data";
+                  ]]]
+          - type: tile
+            grid_options:
+              columns: 12
+              rows: 1
+            entity: automation.sigenergy_solar_import_export_control
+            show_entity_picture: false
+            hide_state: false
+            vertical: false
+            features_position: inline
+          - type: heading
+            icon: mdi:home-automation
+            heading: Automation Control
+            heading_style: subtitle
+          - type: tile
+            entity: input_select.sigenergy_mode
+            vertical: false
+            features_position: inline
+            features:
+              - type: select-options
+          - type: heading
+            icon: mdi:home-battery-outline
+            heading: ESS Mode
+            heading_style: subtitle
+          - type: tile
+            entity: select.sigen_plant_remote_ems_control_mode
+            vertical: false
+            features_position: bottom
+            grid_options:
+              columns: 12
+              rows: 1
+            features:
+              - type: select-options
+          - type: entities
+            entities:
+              - entity: sensor.solcast_pv_forecast_forecast_today
+              - entity: sensor.solcast_pv_forecast_forecast_remaining_today
+              - entity: sensor.solcast_pv_forecast_forecast_tomorrow
+              - entity: sensor.kambah_west
+              - entity: sensor.kambah_north_east
+          - type: markdown
+            title: Sun Times
+            content: >
+              {% set today_str = now().strftime('%a, %d %b') %}
+
+              {% set tomorrow_str = (now() + timedelta(days=1)).strftime('%a, %d
+              %b') %}
+
+              {% set sunrise_today =
+              states('sensor.kambah_astronomical_sunrise_time_0') %}
+
+              {% set sunset_today =
+              states('sensor.kambah_astronomical_sunset_time_0') %}
+
+              {% set sunrise_tom =
+              states('sensor.kambah_astronomical_sunrise_time_1') %}
+
+              {% set sunset_tom =
+              states('sensor.kambah_astronomical_sunset_time_1') %}
+
+              <table style="width:100%; text-align:left;">
+                <tr>
+                  <th style="padding-right:2em; font-size:1.1em;">{{ today_str }}</th>
+                  <th style="font-size:1.1em;">{{ tomorrow_str }}</th>
+                </tr>
+                <tr>
+                  <td>Sunrise: <b>{{ sunrise_today }}</b></td>
+                  <td>Sunrise: <b>{{ sunrise_tom }}</b></td>
+                </tr>
+                <tr>
+                  <td>Sunset: <b>{{ sunset_today }}</b></td>
+                  <td>Sunset: <b>{{ sunset_tom }}</b></td>
+                </tr>
+              </table>
+        column_span: 1
+    cards: []
