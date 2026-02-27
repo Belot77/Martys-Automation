@@ -1013,6 +1013,86 @@ blueprint:
               unit_of_measurement: h
               mode: box
 
+    battery_full_safeguard:
+      name: |
+        # Battery Full Safeguard
+      description: Ensure battery is 100% SoC by a configurable time before sunset, using only PV (never grid import).
+      icon: mdi:battery-check-outline
+      collapsed: true
+      input:
+        battery_full_safeguard_enabled:
+          name: Enable Battery Full Safeguard
+          description: Enable the logic that ensures battery is full before sunset by blocking exports if forecast is insufficient.
+          default: true
+          selector:
+            boolean: {}
+        battery_full_hours_before_sunset:
+          name: Hours Before Sunset
+          description: Target time (hours before sunset) by which battery must be 100% SoC.
+          default: 2.0
+          selector:
+            number:
+              min: 0.5
+              max: 6.0
+              step: 0.5
+              unit_of_measurement: h
+              mode: box
+        battery_full_forecast_multiplier:
+          name: Forecast Safety Multiplier
+          description: Multiplier for PV forecast safety margin (e.g., 0.8 = 80%). Lower values are more conservative.
+          default: 0.8
+          selector:
+            number:
+              min: 0.1
+              max: 2.0
+              step: 0.05
+              mode: box
+
+    solar_surplus_bypass:
+      name: |
+        # Solar Surplus Bypass
+      description: Settings for bypassing export restrictions when PV forecast is excellent.
+      icon: mdi:solar-power-variant-outline
+      collapsed: true
+      input:
+        solar_surplus_bypass_enabled:
+          name: Enable Solar Surplus Bypass
+          description: Enable the logic that bypasses normal export restrictions when the remaining PV forecast is very high.
+          default: true
+          selector:
+            boolean: {}
+        solar_surplus_start_multiplier:
+          name: Bypass Start Multiplier
+          description: Multiplier applied to battery capacity to determine the forecast threshold to START the bypass (e.g., 2.0 = start bypass when forecast > 2x capacity).
+          default: 2.0
+          selector:
+            number:
+              min: 1.0
+              max: 10.0
+              step: 0.1
+              mode: box
+        solar_surplus_stop_multiplier:
+          name: Bypass Stop Multiplier
+          description: Multiplier applied to battery capacity to determine the forecast threshold to STOP the bypass (e.g., 1.25 = stop bypass when forecast < 1.25x capacity). Provides hysteresis.
+          default: 1.25
+          selector:
+            number:
+              min: 1.0
+              max: 10.0
+              step: 0.1
+              mode: box
+        solar_surplus_min_pv_margin:
+          name: Bypass Min PV Margin (kW)
+          description: Minimum excess PV power (PV minus Load) required to activate the bypass.
+          default: 0.5
+          selector:
+            number:
+              min: 0.0
+              max: 5.0
+              step: 0.1
+              unit_of_measurement: kW
+              mode: box
+
     stability_hysteresis:
       name: |
         # Stability & Hysteresis
@@ -1233,6 +1313,9 @@ action:
       standby_holdoff_end_time: !input standby_holdoff_end_time
       morning_dump_enabled: !input morning_dump_enabled
       morning_dump_hours_before_sunrise: !input morning_dump_hours_before_sunrise
+      battery_full_safeguard_enabled: !input battery_full_safeguard_enabled
+      battery_full_hours_before_sunset: !input battery_full_hours_before_sunset
+      battery_full_forecast_multiplier: !input battery_full_forecast_multiplier
       soc_hysteresis: !input soc_hysteresis
       min_change_threshold: !input min_change_threshold
       min_grid_transfer_kw: !input min_grid_transfer_kw
@@ -1246,6 +1329,10 @@ action:
       export_guard_relax_soc: !input export_guard_relax_soc
       sunset_export_grace_hours: !input sunset_export_grace_hours
       evening_mode_hours_before_sunset: !input evening_mode_hours_before_sunset
+      solar_surplus_bypass_enabled: !input solar_surplus_bypass_enabled
+      solar_surplus_start_multiplier: !input solar_surplus_start_multiplier
+      solar_surplus_stop_multiplier: !input solar_surplus_stop_multiplier
+      solar_surplus_min_pv_margin: !input solar_surplus_min_pv_margin
 
       pv_power_sensor_entity: !input pv_power_sensor
       consumed_power_sensor_entity: !input consumed_power_sensor
@@ -2082,21 +2169,62 @@ action:
 
       # Solar Surplus Bypass: When forecast is excellent, bypass normal export restrictions
       # to allow full PV export even when battery is below target SoC.
-      # START threshold: 2× battery capacity (e.g., 80kWh for 40kWh battery)
-      # CONTINUE threshold: 1.25× battery (50kWh) - hysteresis prevents flapping
-      # Only active when PV production exceeds load by meaningful amount
+      # Uses configurable multipliers for start/stop thresholds based on battery capacity.
+      # Only active when PV production exceeds load by the configured margin.
       solar_surplus_bypass: >
-        {% if morning_slow_charge_active | bool(false) %}
+        {% if not solar_surplus_bypass_enabled or morning_slow_charge_active | bool(false) %}
           {{ false }}
         {% else %}
           {% set cap = battery_capacity_kwh | float(10) %}
-          {% set start_thresh = cap * 2 %}
-          {% set stop_thresh = cap * 1.25 %}
-          {% set pv_over_load = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
+          {% set start_thresh = cap * (solar_surplus_start_multiplier | float(2.0)) %}
+          {% set stop_thresh = cap * (solar_surplus_stop_multiplier | float(1.25)) %}
+          {% set pv_over_load = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (solar_surplus_min_pv_margin | float(0.5)) %}
           {% set start_ok = forecast_remaining >= start_thresh %}
           {% set continue_ok = forecast_remaining >= stop_thresh
                                 and current_mode in ['Command Discharging (PV First)','Command Discharging (ESS First)'] %}
           {{ pv_over_load and (start_ok or continue_ok) }}
+        {% endif %}
+
+      battery_full_safeguard_block_export: >
+        {% if not battery_full_safeguard_enabled or is_evening_or_night %}
+          {{ false }}
+        {% else %}
+          {% set cap = battery_capacity_kwh | float(10) %}
+          {% set energy_needed = battery_fill_need_kwh | float(0) %}
+          {% if energy_needed <= 0 %}
+            {{ false }}
+          {% else %}
+            {% set target_hours = battery_full_hours_before_sunset | float(2.0) %}
+            {% set next_setting = state_attr(sun_entity_id,'next_setting') %}
+            {% if next_setting is none %}
+              {{ false }}
+            {% else %}
+              {% set sunset_ts = as_timestamp(next_setting) %}
+              {% set target_ts = sunset_ts - (target_hours * 3600) %}
+              {% set now_ts = as_timestamp(now()) %}
+              {% if now_ts >= target_ts %}
+                {# Past the target time, definitely block export to prioritize charging #}
+                {{ true }}
+              {% else %}
+                {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
+                {% if forecasts is not iterable %}
+                  {{ false }}
+                {% else %}
+                  {% set ns = namespace(total_pv=0) %}
+                  {% for f in forecasts %}
+                    {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
+                      {% set f_ts = as_timestamp(f.period_start) %}
+                      {% if f_ts >= now_ts and f_ts < target_ts %}
+                        {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                  {% set multiplier = battery_full_forecast_multiplier | float(0.8) %}
+                  {{ (ns.total_pv * multiplier) < energy_needed }}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
         {% endif %}
 
       export_high_price: "{{ feedin_price >= export_threshold_high }}"
@@ -2425,10 +2553,12 @@ action:
         {% endif %}
 
       desired_export_limit: >
-        {% if feedin_price <= 0 %}
-          0
-        {% else %}
-          {% set high_price = export_high_price | bool(false) %}
+          {% if feedin_price <= 0 %}
+            0
+          {% elif battery_full_safeguard_block_export %}
+            0
+          {% else %}
+            {% set high_price = export_high_price | bool(false) %}
           {% set spike = export_spike_active | default(false) | bool(false) %}
           {% set spike_full_power = export_spike_full_power | bool(false) %}
           {% set is_daytime = not (is_evening_or_night | bool(false)) %}

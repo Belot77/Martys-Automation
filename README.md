@@ -24,7 +24,7 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 - **Morning Dump**: Export battery at high FIT prices before sunrise (with forecast protection to ensure refill)
 
 #### Daytime Optimization
-- **Solar Surplus Bypass**: When forecast is excellent (default 2× battery capacity, now fully configurable), bypass normal export restrictions
+- **Solar Surplus Bypass**: When forecast is excellent, bypass normal export restrictions. Now fully configurable via a dedicated blueprint section with adjustable start/stop multipliers and minimum PV margin.
 - **Full Battery PV Export**: Emergency valve prevents solar curtailment when battery at 99%+
 - **PV Safeguard**: Protects battery from over-exporting when forecast insufficient
 
@@ -53,6 +53,15 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 - **SigEnergy** - Battery/EMS control and sensor data
 - **Solcast Solar** - PV forecast data (custom integration)
 - **Amber Electric** - Dynamic pricing data (Australia)
+
+### New Blueprint Inputs (Solar Surplus Bypass)
+
+```yaml
+  solar_surplus_bypass_enabled: # Enable/disable bypass logic
+  solar_surplus_start_multiplier: # Multiplier for bypass start threshold (default 2.0x)
+  solar_surplus_stop_multiplier: # Multiplier for bypass stop threshold (default 1.25x)
+  solar_surplus_min_pv_margin: # Minimum PV surplus margin in kW (default 0.5)
+```
 
 ### New Blueprint Inputs (Battery Full Safeguard)
 

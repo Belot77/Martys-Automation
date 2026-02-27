@@ -4,7 +4,7 @@
 
 ### SigEnergy Optimiser Enhancements
 
-- [ ] **Battery Full Safeguard**
+- [x] **Battery Full Safeguard**
   - Ensures battery is 100% SoC by X hours before sunset using only PV (never grid import)
   - Forecast-aware (Solcast), load/export aware, with user-settable forecast multiplier
   - Blocks export and maximizes PV self-consumption if forecast is insufficient
@@ -12,8 +12,10 @@
 
 - [x] **Solar Surplus Bypass thresholds now configurable**
   - Blueprint inputs allow enabling/disabling and setting custom start/continue multipliers
-  - Defaults match previous (2×/1.25× battery capacity)
-  - UI section added for clarity
+  - Added master toggle `solar_surplus_bypass_enabled`
+  - Added configurable multipliers for start/stop thresholds and minimum PV margin
+  - UI section "Solar Surplus Bypass" added for clarity
+  - Commit: [current_commit]
 
 - [ ] **Monitor full_battery_pv_export behavior**
   - At 99% SoC with PV surplus, allows high export limit regardless of FIT tier

@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- **Solar Surplus Bypass Enhancements**
+  - New blueprint section "Solar Surplus Bypass" for granular control
+  - Added configurable master toggle `solar_surplus_bypass_enabled`
+  - Added configurable multipliers for start/stop thresholds: `solar_surplus_start_multiplier` and `solar_surplus_stop_multiplier`
+  - Added configurable minimum PV margin: `solar_surplus_min_pv_margin`
+  - Logic now uses these inputs instead of hardcoded values (2.0x, 1.25x, 0.5kW)
 - **Battery Full Safeguard**
   - New blueprint section to ensure battery is 100% SoC by configurable hours before sunset, using only PV (never grid import)
   - Forecast-aware (Solcast), load/export aware, with user-settable forecast multiplier
@@ -24,8 +30,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Commit: 3246761
 
 ### Changed
-- Solar Surplus Bypass thresholds are now fully configurable via blueprint inputs (enable/disable, start/continue multipliers)
-- Added dedicated Solar Surplus Bypass section to blueprint UI
 - Ongoing monitoring of full_battery_pv_export behavior
 
 ---
