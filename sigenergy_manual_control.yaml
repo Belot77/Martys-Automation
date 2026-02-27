@@ -1,0 +1,472 @@
+blueprint:
+  name: SigEnergy Manual Mode Controller
+  description: 'Toggle between automated optimiser control and fixed SigEnergy EMS
+    limits from an `input_select`.
+
+
+    - Select "Automated" (or your custom label) to re-enable the optimiser automation.
+
+    - Select a manual mode to turn the optimiser off and push the EMS mode plus import/export/PV
+    caps.
+
+    - One shared block-flow limit input is reused everywhere import/export is capped
+    to ~0.
+
+    - ESS max charge and discharge limits can be configured separately, with backward
+    compatibility for existing configs using the shared value.
+
+    - Export/import caps now auto-pull from rated charge/discharge sensors (with numeric
+    fallbacks).
+
+    '
+  domain: automation
+  source_url: https://raw.githubusercontent.com/mplinuxgeek/ha_blueprints/refs/heads/main/sigenergy_manual_control/sigenergy_manual_control.yaml
+  input:
+    mode_select:
+      name: Mode Selector (input_select)
+      description: Helper that holds your manual mode options.
+      default: input_select.sigenergy_mode
+      selector:
+        entity:
+          domain:
+          - input_select
+          reorder: false
+          multiple: false
+    optimiser_automation:
+      name: Optimiser Automation
+      description: Automation to enable when Automated mode is selected.
+      default: automation.sigenergy_solar_import_export_control
+      selector:
+        entity:
+          domain:
+          - automation
+          reorder: false
+          multiple: false
+    ems_mode_select:
+      name: EMS Control Mode Select
+      default: select.sigen_plant_remote_ems_control_mode
+      selector:
+        entity:
+          domain:
+          - select
+          reorder: false
+          multiple: false
+    ess_max_charging_limit:
+      name: ESS Max Charging Limit
+      default: number.sigen_plant_ess_max_charging_limit
+      selector:
+        entity:
+          domain:
+          - number
+          reorder: false
+          multiple: false
+    ess_max_discharging_limit:
+      name: ESS Max Discharging Limit
+      default: number.sigen_plant_ess_max_discharging_limit
+      selector:
+        entity:
+          domain:
+          - number
+          reorder: false
+          multiple: false
+    grid_export_limit:
+      name: Grid Export Limitation
+      default: number.sigen_plant_grid_export_limitation
+      selector:
+        entity:
+          domain:
+          - number
+          reorder: false
+          multiple: false
+    grid_import_limit:
+      name: Grid Import Limitation
+      default: number.sigen_plant_grid_import_limitation
+      selector:
+        entity:
+          domain:
+          - number
+          reorder: false
+          multiple: false
+    pv_max_power_limit:
+      name: PV Max Power Limit
+      default: number.sigen_plant_pv_max_power_limit
+      selector:
+        entity:
+          domain:
+          - number
+          reorder: false
+          multiple: false
+    rated_charge_sensor:
+      name: ESS Rated Charge Power Sensor
+      description: Used to derive the max import/charge cap.
+      default: sensor.sigen_inverter_ess_rated_charge_power
+      selector:
+        entity:
+          domain:
+          - sensor
+          reorder: false
+          multiple: false
+    rated_discharge_sensor:
+      name: ESS Rated Discharge Power Sensor
+      description: Used to derive the max export/discharge cap.
+      default: sensor.sigen_inverter_ess_rated_discharge_power
+      selector:
+        entity:
+          domain:
+          - sensor
+          reorder: false
+          multiple: false
+    automated_option:
+      name: Automated Mode Label
+      description: Text in the input_select that represents Automated control.
+      default: Automated
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    full_export_option:
+      name: Force Full Export Label
+      default: Force Full Export
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    full_import_option:
+      name: Force Full Import Label
+      default: Force Full Import
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    full_import_pv_option:
+      name: Force Full Import + PV Label
+      default: Force Full Import + PV
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    block_flow_option:
+      name: Prevent Import & Export Label
+      default: Prevent Import & Export
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    manual_option:
+      name: Manual Mode Label
+      description: Label that simply disables the optimiser without pushing limits.
+      default: Manual
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    export_mode_option:
+      name: EMS Option - Force Full Export
+      default: Command Discharging (PV First)
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    import_mode_option:
+      name: EMS Option - Force Full Import
+      default: Command Charging (Grid First)
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    import_pv_mode_option:
+      name: EMS Option - Force Full Import + PV
+      default: Command Charging (PV First)
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    block_mode_option:
+      name: EMS Option - Prevent Import & Export
+      default: Maximum Self Consumption
+      selector:
+        text:
+          multiline: false
+          multiple: false
+    ess_limit_value:
+      name: ESS Charge/Discharge Limit Value
+      description: Legacy shared value applied to both ESS max charge and discharge limits when separate values are left at defaults.
+      default: 25
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+    ess_charge_limit_value:
+      name: ESS Charge Limit Value
+      description: Applied to ESS max charging limit.
+      default: 25
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+    ess_discharge_limit_value:
+      name: ESS Discharge Limit Value
+      description: Applied to ESS max discharging limit.
+      default: 25
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+    export_limit_value:
+      name: Export Limit Value
+      description: Fallback value for grid/PCS export limits when forcing export (used
+        if rated discharge sensor is missing/0).
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+    import_limit_value:
+      name: Import Limit Value
+      description: Fallback value for grid/PCS import limits when forcing import (used
+        if rated charge sensor is missing/0).
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+    block_flow_limit_value:
+      name: Block Import/Export Limit Value
+      description: Single value used to block import/export in all manual modes.
+      default: 0.01
+      selector:
+        number:
+          min: 0.0
+          max: 10.0
+          step: 0.01
+          mode: slider
+    pv_max_power_value:
+      name: PV Max Power Limit Value
+      default: 30
+      selector:
+        number:
+          min: 0.0
+          max: 100.0
+          step: 0.01
+          mode: slider
+trigger:
+- platform: state
+  entity_id: !input mode_select
+variables:
+  mode_select_entity: !input mode_select
+  mode_sel: '{{ states(mode_select_entity) }}'
+  automated_label: !input automated_option
+  full_export_label: !input full_export_option
+  full_import_label: !input full_import_option
+  full_import_pv_label: !input full_import_pv_option
+  block_flow_label: !input block_flow_option
+  manual_label: !input manual_option
+  optimiser_automation_entity: !input optimiser_automation
+  ems_mode_select_entity: !input ems_mode_select
+  ess_max_charging_entity: !input ess_max_charging_limit
+  ess_max_discharging_entity: !input ess_max_discharging_limit
+  grid_export_limit_entity: !input grid_export_limit
+  grid_import_limit_entity: !input grid_import_limit
+  pv_max_power_limit_entity: !input pv_max_power_limit
+  rated_charge_sensor_entity: !input rated_charge_sensor
+  rated_discharge_sensor_entity: !input rated_discharge_sensor
+  export_limit_value_input: !input export_limit_value
+  import_limit_value_input: !input import_limit_value
+  ess_limit_shared_input: !input ess_limit_value
+  ess_charge_limit_input: !input ess_charge_limit_value
+  ess_discharge_limit_input: !input ess_discharge_limit_value
+  resolved_ess_charge_limit: '{% set shared = ess_limit_shared_input | float(25) %}
+    {% set separate = ess_charge_limit_input | float(25) %} {{ shared if (separate
+    == 25 and shared != 25) else separate }}
+
+    '
+  resolved_ess_discharge_limit: '{% set shared = ess_limit_shared_input | float(25)
+    %} {% set separate = ess_discharge_limit_input | float(25) %} {{ shared if (separate
+    == 25 and shared != 25) else separate }}
+
+    '
+  computed_export_limit: '{% set val = states(rated_discharge_sensor_entity) | float(0)
+    %} {% set fallback = export_limit_value_input | float(0) %} {{ val if val > 0
+    else fallback }}
+
+    '
+  computed_import_limit: '{% set val = states(rated_charge_sensor_entity) | float(0)
+    %} {% set fallback = import_limit_value_input | float(0) %} {{ val if val > 0
+    else fallback }}
+
+    '
+mode: single
+action:
+- choose:
+  - conditions:
+    - condition: template
+      value_template: '{{ mode_sel == automated_label }}'
+    sequence:
+    - service: automation.turn_on
+      target:
+        entity_id: '{{ optimiser_automation_entity }}'
+  - conditions:
+    - condition: template
+      value_template: '{{ mode_sel != automated_label }}'
+    sequence:
+    - service: automation.turn_off
+      target:
+        entity_id: '{{ optimiser_automation_entity }}'
+      data:
+        stop_actions: true
+    - choose:
+      - conditions:
+        - condition: template
+          value_template: '{{ mode_sel == manual_label }}'
+        sequence: []
+      - conditions:
+        - condition: template
+          value_template: '{{ mode_sel != manual_label }}'
+        sequence:
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ mode_sel == full_export_label }}'
+            sequence:
+            - service: select.select_option
+              target:
+                entity_id: '{{ ems_mode_select_entity }}'
+              data:
+                option: !input export_mode_option
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_charging_entity }}'
+              data:
+                value: '{{ resolved_ess_charge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_discharging_entity }}'
+              data:
+                value: '{{ resolved_ess_discharge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_export_limit_entity }}'
+              data:
+                value: '{{ computed_export_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_import_limit_entity }}'
+              data:
+                value: !input block_flow_limit_value
+            - service: number.set_value
+              target:
+                entity_id: '{{ pv_max_power_limit_entity }}'
+              data:
+                value: !input pv_max_power_value
+          - conditions:
+            - condition: template
+              value_template: '{{ mode_sel == full_import_label }}'
+            sequence:
+            - service: select.select_option
+              target:
+                entity_id: '{{ ems_mode_select_entity }}'
+              data:
+                option: !input import_mode_option
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_charging_entity }}'
+              data:
+                value: '{{ resolved_ess_charge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_discharging_entity }}'
+              data:
+                value: '{{ resolved_ess_discharge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_export_limit_entity }}'
+              data:
+                value: !input block_flow_limit_value
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_import_limit_entity }}'
+              data:
+                value: '{{ computed_import_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ pv_max_power_limit_entity }}'
+              data:
+                value: !input pv_max_power_value
+          - conditions:
+            - condition: template
+              value_template: '{{ mode_sel == full_import_pv_label }}'
+            sequence:
+            - service: select.select_option
+              target:
+                entity_id: '{{ ems_mode_select_entity }}'
+              data:
+                option: !input import_pv_mode_option
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_charging_entity }}'
+              data:
+                value: '{{ resolved_ess_charge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_discharging_entity }}'
+              data:
+                value: '{{ resolved_ess_discharge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_export_limit_entity }}'
+              data:
+                value: !input block_flow_limit_value
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_import_limit_entity }}'
+              data:
+                value: '{{ computed_import_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ pv_max_power_limit_entity }}'
+              data:
+                value: !input pv_max_power_value
+          - conditions:
+            - condition: template
+              value_template: '{{ mode_sel == block_flow_label }}'
+            sequence:
+            - service: select.select_option
+              target:
+                entity_id: '{{ ems_mode_select_entity }}'
+              data:
+                option: !input block_mode_option
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_charging_entity }}'
+              data:
+                value: '{{ resolved_ess_charge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ ess_max_discharging_entity }}'
+              data:
+                value: '{{ resolved_ess_discharge_limit }}'
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_export_limit_entity }}'
+              data:
+                value: !input block_flow_limit_value
+            - service: number.set_value
+              target:
+                entity_id: '{{ grid_import_limit_entity }}'
+              data:
+                value: !input block_flow_limit_value
+            - service: number.set_value
+              target:
+                entity_id: '{{ pv_max_power_limit_entity }}'
+              data:
+                value: !input pv_max_power_value
