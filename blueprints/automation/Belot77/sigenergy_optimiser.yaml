@@ -2553,13 +2553,13 @@ action:
         {% endif %}
 
       desired_export_limit: >
+        {% set high_price = export_high_price | bool(false) %}
+        {% set spike = export_spike_active | default(false) | bool(false) %}
         {% if feedin_price <= 0 %}
           0
-        {% elif battery_full_safeguard_block_export %}
+        {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           0
         {% else %}
-          {% set high_price = export_high_price | bool(false) %}
-          {% set spike = export_spike_active | default(false) | bool(false) %}
           {% set spike_full_power = export_spike_full_power | bool(false) %}
           {% set is_daytime = not (is_evening_or_night | bool(false)) %}
           {% set bypass_min_soc = high_price or spike or solar_surplus_bypass or positive_fit_override %}

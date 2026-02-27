@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Forecast-aware (Solcast), load/export aware, with user-settable forecast multiplier
   - Blocks export and maximizes PV self-consumption if forecast is insufficient
   - UI: Enable/disable, set hours-before-sunset, and forecast multiplier
+  - **Enhanced Logic**: Added override to allow "High Price" and "Spike" events to bypass the safeguard block for maximum financial benefit.
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
