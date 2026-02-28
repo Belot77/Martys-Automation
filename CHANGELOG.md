@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - UI: Enable/disable, set hours-before-sunset, and forecast multiplier
   - **Enhanced Logic**: Added override to allow "High Price" and "Spike" events to bypass the safeguard block for maximum financial benefit.
   - **Priority Alignment**: Realigned status messages and control logic to prioritize the Safeguard as the primary reason for blocking exports over FIT price thresholds.
+  - **Improved Forecast Accuracy**: Safeguard calculation now respects the battery's maximum charging rate and estimated load for more realistic "safe-to-export" decisions.
+  - **Battery Charging Priority**: Export limit now prioritizes battery charging (up to `target_battery_charge`) during normal price conditions, ensuring the battery fills as fast as possible before any export occurs.
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full

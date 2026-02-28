@@ -2211,11 +2211,18 @@ action:
                   {{ false }}
                 {% else %}
                   {% set ns = namespace(total_pv=0) %}
+                  {% set max_charge_kw = (states(ess_max_charging_limit_entity) | float(target_battery_charge | float(6.0))) %}
+                  {% set est_load_kw = (load_kw | float(0.5)) %}
+                  {% set period_hours = solcast_forecast_period_hours | float(0.5) %}
                   {% for f in forecasts %}
                     {% if f is mapping and 'period_start' in f and 'pv_estimate' in f %}
                       {% set f_ts = as_timestamp(f.period_start) %}
                       {% if f_ts >= now_ts and f_ts < target_ts %}
-                        {% set ns.total_pv = ns.total_pv + (f.pv_estimate | float(0) * solcast_forecast_period_hours | float(0.5)) %}
+                        {# Only count PV that can actually be captured by the battery (minus load) #}
+                        {% set period_pv_kw = f.pv_estimate | float(0) %}
+                        {% set net_period_surplus = [period_pv_kw - est_load_kw, 0] | max %}
+                        {% set usable_period_kwh = [net_period_surplus, max_charge_kw] | min * period_hours %}
+                        {% set ns.total_pv = ns.total_pv + usable_period_kwh %}
                       {% endif %}
                     {% endif %}
                   {% endfor %}
@@ -2650,11 +2657,15 @@ action:
                 Prevents battery drain at low prices while allowing full solar export when full. #}
                 {% if (not is_evening_or_night) and (not high_price and not spike) %}
                   {% if battery_soc >= 99 %}
-                    {% set pv_surplus = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {% set pv_surplus_full = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {% set limit = [(limit | float(0)), (pv_surplus_full | float(0))] | min %}
                   {% else %}
-                    {% set pv_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {# Prioritize battery charging: subtract target_battery_charge from surplus #}
+                    {% set raw_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
+                    {% set charge_priority = target_battery_charge | float(6.0) if battery_soc < 98 else 0 %}
+                    {% set pv_surplus_net = [raw_surplus - charge_priority, 0] | max %}
+                    {% set limit = [(limit | float(0)), (pv_surplus_net | float(0))] | min %}
                   {% endif %}
-                  {% set limit = [(limit | float(0)), (pv_surplus | float(0))] | min %}
                 {% endif %}
                 {% if limit <= 0 %}
                   0
