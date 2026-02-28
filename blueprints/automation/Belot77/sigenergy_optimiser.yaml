@@ -392,8 +392,8 @@ blueprint:
       input:
         price_sensor:
           name: Buy Price Sensor
-          description: Current buy price sensor (default `sensor.amber_general_price`).
-          default: sensor.amber_general_price
+          description: Current buy price sensor (Amber Express default `sensor.amber_express_home_general_price_detailed`).
+          default: sensor.amber_express_home_general_price_detailed
           selector:
             entity:
               domain: sensor
@@ -417,8 +417,8 @@ blueprint:
             text: {}
         price_multiplier:
           name: Price Multiplier
-          description: Multiplier to convert sensor values to cents (e.g., 100 for $/kWh to cents).
-          default: 1.0
+          description: Multiplier to convert sensor values to cents (Amber Express $/kWh -> cents uses 100).
+          default: 100.0
           selector:
             number:
               min: 1.0
@@ -427,15 +427,15 @@ blueprint:
               mode: box
         demand_window_sensor:
           name: Demand Window Sensor
-          description: Binary sensor that blocks export when `on` (default `binary_sensor.amber_demand_window`).
-          default: binary_sensor.amber_demand_window
+          description: Binary sensor that blocks export when `on` (Amber Express default `binary_sensor.amber_express_home_demand_window`).
+          default: binary_sensor.amber_express_home_demand_window
           selector:
             entity:
               domain: binary_sensor
         price_spike_sensor:
           name: Price Spike Sensor
-          description: Binary sensor indicating a price spike; when `on` and above the spike threshold, export at max (default `binary_sensor.amber_price_spike`).
-          default: binary_sensor.amber_price_spike
+          description: Binary sensor indicating a price spike; when `on` and above the spike threshold, export at max (Amber Express default `binary_sensor.amber_express_home_price_spike`).
+          default: binary_sensor.amber_express_home_price_spike
           selector:
             entity:
               domain: binary_sensor
@@ -448,15 +448,15 @@ blueprint:
               domain: sensor
         feedin_sensor:
           name: Feed-in Price Sensor
-          description: Feed-in tariff sensor (default `sensor.amber_feed_in_price`).
-          default: sensor.amber_feed_in_price
+          description: Feed-in tariff sensor (Amber Express default `sensor.amber_express_home_feed_in_price_detailed`).
+          default: sensor.amber_express_home_feed_in_price_detailed
           selector:
             entity:
               domain: sensor
         feedin_forecast_sensor:
           name: Feed-in Forecast Sensor
-          description: Feed-in tariff forecast sensor with forecasts attribute (default `sensor.amber_feed_in_forecast`). Used for evening boost spike detection.
-          default: sensor.amber_feed_in_forecast
+          description: Feed-in tariff forecast sensor with forecasts attribute (Amber Express default `sensor.amber_express_home_feed_in_price_detailed`). Used for evening boost spike detection.
+          default: sensor.amber_express_home_feed_in_price_detailed
           selector:
             entity:
               domain: sensor
@@ -474,8 +474,8 @@ blueprint:
             text: {}
         price_forecast_sensor:
           name: Price Forecast Sensor
-          description: Price forecast sensor with `forecasts` attribute (default `sensor.amber_general_forecast`).
-          default: sensor.amber_general_forecast
+          description: Price forecast sensor with `forecasts` attribute (Amber Express default `sensor.amber_express_home_general_price_detailed`).
+          default: sensor.amber_express_home_general_price_detailed
           selector:
             entity:
               domain: sensor
