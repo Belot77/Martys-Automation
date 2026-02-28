@@ -28,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Updated blueprint and logic to support the new **Amber Express** integration with high-resolution 5-minute attributes.
   - Added new blueprint inputs for `price_forecast_attribute`, `price_forecast_value_key`, `price_forecast_time_key`, and `price_multiplier`.
   - Added attribute-based forecast scanning for negative prices and high FIT prices, replacing the need for 48+ separate sensors.
-  - **Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).
+  - **Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).**
 - **Export Protection Fix**: Ensured exports are strictly blocked when the FIT price is 0c or below.
   - Updated `desired_export_limit` and `export_reason` to use a robust `< 0.01` check, preventing rounding issues from allowing exports at 0.00c.
 - **Human-Friendly Status Messages**
@@ -38,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Standardized the use of the `¢` symbol and estimated price indicators (`*`).
 
 ### Fixed
+- **Price Unit Normalization** - Internal comparisons now consistently use $/kWh (no multiplier)
+  - Root cause: `price_multiplier` was applied to `current_price` and `feedin_price`, but thresholds are configured in $/kWh
+  - Impact: High-tier/spike logic could trigger at normal cents-level FIT (e.g., 3.9¢ treated as 3.9 $/kWh)
+  - Solution: Keep `current_price`/`feedin_price` in $/kWh, introduce `*_cents` for display and 0¢ guards
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
   - Root cause: Early daytime `desired_export_limit` gate and `desired_ems_mode` fallback used measured `pv_kw`, which can be curtailed at 100% SoC
   - Impact: System could stay in `Maximum Self Consumption` and not raise export after sun intensity increased

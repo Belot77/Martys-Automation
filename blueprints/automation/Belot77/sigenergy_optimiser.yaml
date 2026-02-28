@@ -1455,11 +1455,13 @@ action:
         {% else %}
           1
         {% endif %}
-      current_price: "{{ (current_price_raw | float(1)) * (price_multiplier | float(1)) }}"
+      current_price: "{{ current_price_raw | float(1) }}"
+      current_price_cents: "{{ (current_price_raw | float(1)) * (price_multiplier | float(1)) }}"
       feedin_state: "{{ states(feedin_sensor_entity) }}"
       feedin_available: "{{ feedin_state not in ['unknown','unavailable','none',''] }}"
       feedin_price_raw: "{{ feedin_state | float(-999) }}"
-      feedin_price: "{{ (feedin_price_raw | float(-999)) * (price_multiplier | float(1)) }}"
+      feedin_price: "{{ feedin_price_raw | float(-999) }}"
+      feedin_price_cents: "{{ (feedin_price_raw | float(-999)) * (price_multiplier | float(1)) }}"
       price_spike_active: "{{ is_state(price_spike_sensor_entity, 'on') }}"
       demand_window_active: "{{ is_state(demand_window_sensor_entity, 'on') }}"
       export_spike_active: >
@@ -1564,7 +1566,7 @@ action:
           {% for f in fc %}
             {% if f is mapping and price_forecast_value_key in f and price_forecast_time_key in f %}
               {% set ts = as_timestamp(f[price_forecast_time_key]) %}
-              {% set price = (f[price_forecast_value_key] | float(0)) * (price_multiplier | float(1)) %}
+              {% set price = (f[price_forecast_value_key] | float(0)) %}
               {% if ts is not none and ts <= cutoff and price < 0 %}
                 {% set ns.found = true %}
               {% endif %}
@@ -1584,7 +1586,7 @@ action:
           {% for f in fc %}
             {% if f is mapping and price_forecast_value_key in f and price_forecast_time_key in f %}
               {% set ts = as_timestamp(f[price_forecast_time_key]) %}
-              {% set price = (f[price_forecast_value_key] | float(0)) * (price_multiplier | float(1)) %}
+              {% set price = (f[price_forecast_value_key] | float(0)) %}
               {% if ts is not none and ts <= cutoff_ts and price < 0 %}
                 {% set ns.found = true %}
               {% endif %}
@@ -2199,7 +2201,7 @@ action:
                   {% for f in feedin_fc %}
                     {% if f is mapping and price_forecast_time_key in f and feedin_forecast_value_key in f %}
                       {% set f_ts = as_timestamp(f[price_forecast_time_key]) %}
-                      {% set f_price = (f[feedin_forecast_value_key] | float(0)) * (price_multiplier | float(1)) %}
+                      {% set f_price = (f[feedin_forecast_value_key] | float(0)) %}
                       {% if f_ts is not none and f_ts >= now_ts and f_ts <= tomorrow_6am %}
                         {% if f_price >= export_threshold_medium %}
                           {% set no_high_fit = false %}
@@ -2516,10 +2518,11 @@ action:
       export_reason: >
         {% set spike = export_spike_active | default(false) %}
         {% set high_price = export_high_price | bool(false) %}
-        {% set f_price = feedin_price | float(0) %}
-        {% set c_price = current_price | float(0) %}
+        {% set f_price = feedin_price_cents | float(0) %}
+        {% set c_price = current_price_cents | float(0) %}
         {% set f_disp = 0.0 if (f_price | abs < 0.05) else (f_price | round(1)) %}
         {% set c_disp = 0.0 if (c_price | abs < 0.05) else (c_price | round(1)) %}
+        {% set export_low_disp = ((export_threshold_low | float(0)) * (price_multiplier | float(1))) | round(1) %}
         {% set est = '*' if price_is_estimated else '' %}
         {% if price_is_negative %}
           Export blocked, price is negative ({{ c_disp }}¢{{ est }})
@@ -2557,7 +2560,7 @@ action:
               {% if pv_safeguard_active %}
                 Export blocked, forecast protection
               {% else %}
-                Export blocked, FIT {{ f_disp }}¢{{ est }} < {{ export_threshold_low | round(1) }}¢
+                Export blocked, FIT {{ f_disp }}¢{{ est }} < {{ export_low_disp }}¢
               {% endif %}
             {% else %}
               {% set boost = evening_export_boost_active | bool(false) %}
@@ -2573,10 +2576,11 @@ action:
         {% endif %}
 
       import_reason: >
-        {% set f_price = feedin_price | float(0) %}
-        {% set c_price = current_price | float(0) %}
+        {% set f_price = feedin_price_cents | float(0) %}
+        {% set c_price = current_price_cents | float(0) %}
         {% set f_disp = 0.0 if (f_price | abs < 0.05) else (f_price | round(1)) %}
         {% set c_disp = 0.0 if (c_price | abs < 0.05) else (c_price | round(1)) %}
+        {% set export_low_disp = ((export_threshold_low | float(0)) * (price_multiplier | float(1))) | round(1) %}
         {% set est = '*' if price_is_estimated else '' %}
         {% set free_or_paid_import = price_is_actual and current_price <= 0 %}
         {% if morning_dump_active %}
@@ -2594,7 +2598,7 @@ action:
             Importing, FREE
           {% endif %}
         {% elif feedin_price >= export_threshold_low %}
-          Import blocked, FIT {{ f_disp }}¢{{ est }} > export min {{ export_threshold_low | round(1) }}¢
+          Import blocked, FIT {{ f_disp }}¢{{ est }} > export min {{ export_low_disp }}¢
         {% elif current_price > max_price_threshold and battery_soc >= (sunrise_soc_target | float(0)) %}
           Import blocked, price too high ({{ c_disp }}¢{{ est }})
         {% elif grid_limit_base <= 0 %}
@@ -2623,7 +2627,7 @@ action:
       desired_export_limit: >
         {% set high_price = export_high_price | bool(false) %}
         {% set spike = export_spike_active | default(false) | bool(false) %}
-        {% if feedin_price < 0.01 %}
+        {% if (feedin_price_cents | float(0)) < 0.01 %}
           0
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           0
