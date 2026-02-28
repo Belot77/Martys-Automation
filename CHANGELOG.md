@@ -28,7 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Updated blueprint and logic to support the new **Amber Express** integration with high-resolution 5-minute attributes.
   - Added new blueprint inputs for `price_forecast_attribute`, `price_forecast_value_key`, `price_forecast_time_key`, and `price_multiplier`.
   - Added attribute-based forecast scanning for negative prices and high FIT prices, replacing the need for 48+ separate sensors.
-  - Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).
+  - **Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).
+- **Export Protection Fix**: Ensured exports are strictly blocked when the FIT price is 0c or below.
+  - Updated `desired_export_limit` and `export_reason` to use a robust `< 0.01` check, preventing rounding issues from allowing exports at 0.00c.
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full

@@ -2520,8 +2520,8 @@ action:
           Export blocked, price<0 ({{ current_price | round(3) }})
         {% elif not feedin_available %}
           Export blocked, FIT unavailable
-        {% elif feedin_is_negative %}
-          Export blocked, FIT<0 ({{ feedin_price | round(3) }})
+        {% elif feedin_price < 0.01 %}
+          Export blocked, FIT {{ feedin_price | round(3) }}{% if price_is_estimated %}*{% endif %} <= 0
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           Export blocked, saving for sunset
         {% elif morning_dump_active %}
@@ -2615,7 +2615,7 @@ action:
       desired_export_limit: >
         {% set high_price = export_high_price | bool(false) %}
         {% set spike = export_spike_active | default(false) | bool(false) %}
-        {% if feedin_price <= 0 %}
+        {% if feedin_price < 0.01 %}
           0
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           0
