@@ -2241,13 +2241,12 @@ action:
         {% if not battery_full_safeguard_enabled or is_evening_or_night %}
           {{ false }}
         {% else %}
-          {% set cap = battery_capacity_kwh | float(10) %}
           {% set energy_needed = battery_fill_need_kwh | float(0) %}
           {% if energy_needed <= 0 %}
             {{ false }}
           {% else %}
             {% set target_hours = battery_full_hours_before_sunset | float(2.0) %}
-            {% set next_setting = state_attr(sun_entity_id,'next_setting') %}
+            {% set next_setting = state_attr(sun_entity_id, 'next_setting') %}
             {% if next_setting is none %}
               {{ false }}
             {% else %}
@@ -2255,7 +2254,8 @@ action:
               {% set target_ts = sunset_ts - (target_hours * 3600) %}
               {% set now_ts = as_timestamp(now()) %}
               {% if now_ts >= target_ts %}
-                {# Past the target time, definitely block export to prioritize charging #}
+                {# If we are past the target time but before sunset, we must block export IF battery is not full #}
+                {# However, if we are extremely close to sunset (e.g., < 30 mins), it might be too late anyway #}
                 {{ true }}
               {% else %}
                 {% set forecasts = state_attr(forecast_today_sensor_entity, 'detailedForecast') %}
@@ -2528,7 +2528,7 @@ action:
         {% elif f_price < 0.01 %}
           Export blocked, FIT is zero/negative ({{ f_disp }}¢{{ est }})
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
-          Export blocked, saving for sunset
+          Export blocked, saving for sunset ({{ battery_soc | round(0) }}% < 100%)
         {% elif morning_dump_active %}
           Exporting {{ grid_export_actual_kw | round(1) }}kW, Morning dump @ {{ f_disp }}¢{{ est }}, {{ battery_soc | round(0) }}%
         {% elif high_price %}
