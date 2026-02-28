@@ -306,7 +306,7 @@ views:
                 max: 1
                 show: false
             series:
-              - entity: sensor.amber_general_price
+              - entity: sensor.amber_express_home_general_price_detailed
                 name: General price (amber)
                 yaxis_id: price
                 unit: c/kWh
@@ -321,7 +321,7 @@ views:
                 extend_to: false
                 show:
                   extremas: true
-              - entity: sensor.amber_general_forecast
+              - entity: sensor.amber_express_home_general_price_detailed
                 name: General forecast
                 yaxis_id: price
                 unit: c/kWh
@@ -342,7 +342,7 @@ views:
                   return fc
                     .map(f => [new Date(f.start_time).getTime(), Number(f.per_kwh) * 100])
                     .filter(p => p[0] >= start.getTime() && p[0] <= end.getTime());
-              - entity: sensor.amber_feed_in_price
+              - entity: sensor.amber_express_home_feed_in_price_detailed
                 name: Feed-in price (amber)
                 yaxis_id: price
                 unit: c/kWh
@@ -357,7 +357,7 @@ views:
                 extend_to: false
                 show:
                   extremas: true
-              - entity: sensor.amber_feed_in_forecast
+              - entity: sensor.amber_express_home_feed_in_price_detailed
                 name: Feed-in forecast
                 yaxis_id: price
                 unit: c/kWh
@@ -756,7 +756,7 @@ views:
             square: false
             cards:
               - type: custom:button-card
-                entity: sensor.amber_general_price
+                entity: sensor.amber_express_home_general_price_detailed
                 name: General Price
                 show_icon: false
                 show_state: true
@@ -775,11 +775,11 @@ views:
                 state_display: |
                   [[[ 
                     var v = parseFloat(entity.state);
-                    var display = v < 1 ? (v * 100).toFixed(0) + 'c' : '$' + v.toFixed(2);
+                    var display = v < 1 ? (v * 100).toFixed(1) + 'c' : '$' + v.toFixed(2);
                     return display + (entity.attributes.estimate ? '*' : ''); 
                   ]]]
               - type: custom:button-card
-                entity: sensor.amber_general_forecast
+                entity: sensor.amber_express_home_general_price_detailed
                 name: Gen Forecasts
                 show_icon: false
                 show_state: true
@@ -790,8 +790,11 @@ views:
                     - font-weight: bold
                 state_display: |
                   [[[
-                    if (!entity.attributes.forecasts) return entity.state;
+                    if (!entity.attributes.forecasts) return "N/A";
                     var f = entity.attributes.forecasts;
+                    var now = new Date();
+                    // Filter for future forecasts and skip the current one
+                    var future = f.filter(x => new Date(x.start_time) > now);
                     
                     function formatVal(v) {
                       return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
@@ -803,22 +806,26 @@ views:
                       return 'var(--error-color)';
                     }
 
-                    return `<span style="color: ${getColor(f[0].per_kwh)}">${formatVal(f[0].per_kwh)}</span>` +
+                    if (future.length < 3) return "N/A";
+
+                    return `<span style="color: ${getColor(future[0].per_kwh)}">${formatVal(future[0].per_kwh)}</span>` +
                            ` <span style="color: var(--primary-text-color)">|</span> ` +
-                           `<span style="color: ${getColor(f[1].per_kwh)}">${formatVal(f[1].per_kwh)}</span>` +
+                           `<span style="color: ${getColor(future[1].per_kwh)}">${formatVal(future[1].per_kwh)}</span>` +
                            ` <span style="color: var(--primary-text-color)">|</span> ` +
-                           `<span style="color: ${getColor(f[2].per_kwh)}">${formatVal(f[2].per_kwh)}</span>`;
+                           `<span style="color: ${getColor(future[2].per_kwh)}">${formatVal(future[2].per_kwh)}</span>`;
                   ]]]
               - type: custom:button-card
-                entity: sensor.amber_general_price_descriptor
+                entity: sensor.amber_express_home_general_price_detailed
                 name: General Descriptor
                 show_icon: false
                 show_state: true
                 styles:
                   card:
                     - padding: 6px
+                state_display: |
+                  [[[ return entity.attributes.descriptor || "N/A"; ]]]
               - type: custom:button-card
-                entity: sensor.amber_feed_in_price
+                entity: sensor.amber_express_home_feed_in_price_detailed
                 name: Feed-in Price
                 show_icon: false
                 show_state: true
@@ -837,11 +844,11 @@ views:
                 state_display: |
                   [[[ 
                     var v = parseFloat(entity.state);
-                    var display = v < 1 ? (v * 100).toFixed(0) + 'c' : '$' + v.toFixed(2);
+                    var display = v < 1 ? (v * 100).toFixed(1) + 'c' : '$' + v.toFixed(2);
                     return display + (entity.attributes.estimate ? '*' : ''); 
                   ]]]
               - type: custom:button-card
-                entity: sensor.amber_feed_in_forecast
+                entity: sensor.amber_express_home_feed_in_price_detailed
                 name: FiT Forecasts
                 show_icon: false
                 show_state: true
@@ -852,8 +859,10 @@ views:
                     - font-weight: bold
                 state_display: |
                   [[[
-                    if (!entity.attributes.forecasts) return entity.state;
+                    if (!entity.attributes.forecasts) return "N/A";
                     var f = entity.attributes.forecasts;
+                    var now = new Date();
+                    var future = f.filter(x => new Date(x.start_time) > now);
 
                     function formatVal(v) {
                       return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
@@ -865,22 +874,26 @@ views:
                       return 'var(--success-color)';
                     }
 
-                    return `<span style="color: ${getColorFiT(f[0].per_kwh)}">${formatVal(f[0].per_kwh)}</span>` +
+                    if (future.length < 3) return "N/A";
+
+                    return `<span style="color: ${getColorFiT(future[0].per_kwh)}">${formatVal(future[0].per_kwh)}</span>` +
                            ` <span style="color: var(--primary-text-color)">|</span> ` +
-                           `<span style="color: ${getColorFiT(f[1].per_kwh)}">${formatVal(f[1].per_kwh)}</span>` +
+                           `<span style="color: ${getColorFiT(future[1].per_kwh)}">${formatVal(future[1].per_kwh)}</span>` +
                            ` <span style="color: var(--primary-text-color)">|</span> ` +
-                           `<span style="color: ${getColorFiT(f[2].per_kwh)}">${formatVal(f[2].per_kwh)}</span>`;
+                           `<span style="color: ${getColorFiT(future[2].per_kwh)}">${formatVal(future[2].per_kwh)}</span>`;
                   ]]]
               - type: custom:button-card
-                entity: sensor.amber_feed_in_price_descriptor
+                entity: sensor.amber_express_home_feed_in_price_detailed
                 name: Feed-in Descriptor
                 show_icon: false
                 show_state: true
                 styles:
                   card:
                     - padding: 6px
+                state_display: |
+                  [[[ return entity.attributes.descriptor || "N/A"; ]]]
               - type: custom:button-card
-                entity: binary_sensor.amber_price_spike
+                entity: sensor.amber_express_home_general_price_detailed
                 name: Spike
                 show_icon: false
                 show_state: true
@@ -889,10 +902,12 @@ views:
                     - padding: 6px
                   state:
                     - color: >-
-                        [[[ return entity.state === 'on' ? 'var(--error-color)'
+                        [[[ return entity.attributes.spike_status !== 'none' ? 'var(--error-color)'
                         : 'var(--primary-text-color)'; ]]]
+                state_display: |
+                  [[[ return entity.attributes.spike_status || "none"; ]]]
               - type: custom:button-card
-                entity: binary_sensor.amber_demand_window
+                entity: sensor.amber_express_home_general_price_detailed
                 name: Demand Window
                 show_icon: false
                 show_state: true
@@ -901,8 +916,10 @@ views:
                     - padding: 6px
                   state:
                     - color: >-
-                        [[[ return entity.state === 'on' ? 'var(--error-color)'
+                        [[[ return entity.attributes.demand_window ? 'var(--error-color)'
                         : 'var(--primary-text-color)'; ]]]
+                state_display: |
+                  [[[ return entity.attributes.demand_window ? 'Active' : 'Off'; ]]]
               - type: custom:button-card
                 entity: sensor.solcast_pv_forecast_forecast_today
                 name: Solar Next 1.5h
