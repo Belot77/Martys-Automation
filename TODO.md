@@ -4,6 +4,12 @@
 
 ### SigEnergy Optimiser Enhancements
 
+- [x] **Amber Express Migration**
+  - Defaults updated to use Amber Express detailed entities for buy/feed-in prices
+  - Added attribute-aware forecast parsing (`forecasts` with `per_kwh`/`start_time`)
+  - Unit model normalized: internal logic in $/kWh; displays in ¢ via 100× multiplier
+  - Spike & Demand Window defaults mapped to Amber Express binary sensors
+
 - [x] **Battery Full Safeguard**
   - Ensures battery is 100% SoC by X hours before sunset using only PV (never grid import)
   - Forecast-aware (Solcast), load/export aware, with user-settable forecast multiplier
