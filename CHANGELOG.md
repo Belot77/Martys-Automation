@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Blocks export and maximizes PV self-consumption if forecast is insufficient
   - UI: Enable/disable, set hours-before-sunset, and forecast multiplier
   - **Enhanced Logic**: Added override to allow "High Price" and "Spike" events to bypass the safeguard block for maximum financial benefit.
+  - **Priority Alignment**: Realigned status messages and control logic to prioritize the Safeguard as the primary reason for blocking exports over FIT price thresholds.
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full

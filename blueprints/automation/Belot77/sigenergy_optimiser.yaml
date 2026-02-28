@@ -2456,15 +2456,18 @@ action:
 
       export_reason: >
         {% set spike = export_spike_active | default(false) %}
+        {% set high_price = export_high_price | bool(false) %}
         {% if price_is_negative %}
           Export blocked, price<0 ({{ current_price | round(3) }})
         {% elif not feedin_available %}
           Export blocked, FIT unavailable
         {% elif feedin_is_negative %}
           Export blocked, FIT<0 ({{ feedin_price | round(3) }})
+        {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
+          Export blocked, saving for sunset
         {% elif morning_dump_active %}
           Exporting {{ grid_export_actual_kw }}kW, Morning dump @ {{ "%.2f" | format(feedin_price) }}¢, {{ battery_soc | round(0) }}%{% if price_is_estimated %}*{% endif %}
-        {% elif export_high_price %}
+        {% elif high_price %}
           Exporting {{ grid_export_actual_kw }}kW, High tier @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
         {% elif spike %}
           Exporting {{ grid_export_actual_kw }}kW, Spike @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
@@ -2474,8 +2477,8 @@ action:
           Exporting {{ grid_export_actual_kw }}kW, Slow charge
         {% elif solar_surplus_bypass %}
           Exporting {{ grid_export_actual_kw }}kW, Solar bypass ({{ forecast_remaining | round(0) }}kWh left){% if price_is_estimated %}*{% endif %}
-        {% elif export_blocked_for_forecast or export_forecast_guard %}
-          Export blocked, forecast protection
+        {% elif (export_blocked_effective or export_forecast_guard) and not solar_surplus_bypass %}
+          Export blocked, low forecast
         {% elif battery_soc <= export_min_soc %}
           Export blocked, at {{ export_min_soc | round(0) }}% floor
         {% else %}
@@ -2484,8 +2487,6 @@ action:
             Export blocked, below {{ effective_export_floor | round(0) }}% target
           {% elif battery_soc < effective_export_floor %}
             Export blocked, below {{ effective_export_floor | round(0) }}% target
-          {% elif export_blocked_effective %}
-            Export blocked, low forecast
           {% elif full_battery_pv_export %}
             Exporting {{ grid_export_actual_kw }}kW, Full battery @ {{ "%.2f" | format(feedin_price) }}¢{% if price_is_estimated %}*{% endif %}
           {% else %}
