@@ -2660,9 +2660,10 @@ action:
                     {% set pv_surplus_full = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
                     {% set limit = [(limit | float(0)), (pv_surplus_full | float(0))] | min %}
                   {% else %}
-                    {# Prioritize battery charging: subtract target_battery_charge from surplus #}
+                    {# Prioritize battery charging: subtract actual charging limit from surplus #}
                     {% set raw_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
-                    {% set charge_priority = target_battery_charge | float(6.0) if battery_soc < 98 else 0 %}
+                    {% set max_charge_kw = (states(ess_max_charging_limit_entity) | float(target_battery_charge | float(6.0))) %}
+                    {% set charge_priority = max_charge_kw if battery_soc < 98 else 0 %}
                     {% set pv_surplus_net = [raw_surplus - charge_priority, 0] | max %}
                     {% set limit = [(limit | float(0)), (pv_surplus_net | float(0))] | min %}
                   {% endif %}
