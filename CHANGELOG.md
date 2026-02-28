@@ -24,6 +24,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Priority Alignment**: Realigned status messages and control logic to prioritize the Safeguard as the primary reason for blocking exports over FIT price thresholds.
   - **Improved Forecast Accuracy**: Safeguard calculation now respects the battery's maximum charging rate and estimated load for more realistic "safe-to-export" decisions.
   - **Battery Charging Priority**: Export limit now prioritizes battery charging (using actual sensor-defined limits) during normal price conditions, ensuring the battery fills as fast as possible before any export occurs.
+- **Amber Express Integration Support**
+  - Updated blueprint and logic to support the new **Amber Express** integration with high-resolution 5-minute attributes.
+  - Added new blueprint inputs for `price_forecast_attribute`, `price_forecast_value_key`, `price_forecast_time_key`, and `price_multiplier`.
+  - Added attribute-based forecast scanning for negative prices and high FIT prices, replacing the need for 48+ separate sensors.
+  - Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
