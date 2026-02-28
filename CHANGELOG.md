@@ -31,6 +31,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - **Standardized price and feed-in handling to support both $/kWh and cents through the new `price_multiplier` (set to 100.0 for Express).
 - **Export Protection Fix**: Ensured exports are strictly blocked when the FIT price is 0c or below.
   - Updated `desired_export_limit` and `export_reason` to use a robust `< 0.01` check, preventing rounding issues from allowing exports at 0.00c.
+- **Human-Friendly Status Messages**
+  - Refactored `export_reason` and `import_reason` for better readability and precision.
+  - All price displays now use 1 decimal place rounding with noise suppression (values < 0.05¢ show as 0.0¢).
+  - Added contextual prices to "Price too high" and "FIT too low" messages.
+  - Standardized the use of the `¢` symbol and estimated price indicators (`*`).
 
 ### Fixed
 - **Full Battery Surplus Detection Consistency** - Export and mode checks now both use uncurtailed solar potential when battery is full
