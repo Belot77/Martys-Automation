@@ -2520,9 +2520,10 @@ action:
         {% set high_price = export_high_price | bool(false) %}
         {% set f_price = feedin_price_cents | float(0) %}
         {% set c_price = current_price_cents | float(0) %}
-        {% set f_disp = 0.0 if (f_price | abs < 0.05) else (f_price | round(1)) %}
-        {% set c_disp = 0.0 if (c_price | abs < 0.05) else (c_price | round(1)) %}
+        {% set f_disp = (f_price | round(0) | int) if (f_price | abs >= 1) else (0.0 if (f_price | abs < 0.05) else (f_price | round(1))) %}
+        {% set c_disp = (c_price | round(0) | int) if (c_price | abs >= 1) else (0.0 if (c_price | abs < 0.05) else (c_price | round(1))) %}
         {% set export_low_disp = ((export_threshold_low | float(0)) * (price_multiplier | float(1))) | round(1) %}
+        {% set export_low_disp = (export_low_disp | round(0) | int) if (export_low_disp | abs >= 1) else export_low_disp %}
         {% set est = '*' if price_is_estimated else '' %}
         {% if price_is_negative %}
           Export blocked, price is negative ({{ c_disp }}¢{{ est }})
@@ -2578,9 +2579,10 @@ action:
       import_reason: >
         {% set f_price = feedin_price_cents | float(0) %}
         {% set c_price = current_price_cents | float(0) %}
-        {% set f_disp = 0.0 if (f_price | abs < 0.05) else (f_price | round(1)) %}
-        {% set c_disp = 0.0 if (c_price | abs < 0.05) else (c_price | round(1)) %}
+        {% set f_disp = (f_price | round(0) | int) if (f_price | abs >= 1) else (0.0 if (f_price | abs < 0.05) else (f_price | round(1))) %}
+        {% set c_disp = (c_price | round(0) | int) if (c_price | abs >= 1) else (0.0 if (c_price | abs < 0.05) else (c_price | round(1))) %}
         {% set export_low_disp = ((export_threshold_low | float(0)) * (price_multiplier | float(1))) | round(1) %}
+        {% set export_low_disp = (export_low_disp | round(0) | int) if (export_low_disp | abs >= 1) else export_low_disp %}
         {% set est = '*' if price_is_estimated else '' %}
         {% set free_or_paid_import = price_is_actual and current_price <= 0 %}
         {% if morning_dump_active %}

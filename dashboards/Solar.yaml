@@ -775,7 +775,8 @@ views:
                 state_display: |
                   [[[ 
                     var v = parseFloat(entity.state);
-                    var display = v < 1 ? (v * 100).toFixed(1) + 'c' : '$' + v.toFixed(2);
+                    var cents = v * 100;
+                    var display = (Math.abs(cents) < 1) ? cents.toFixed(1) + 'c' : Math.round(cents) + 'c';
                     return display + (entity.attributes.estimate ? '*' : ''); 
                   ]]]
               - type: custom:button-card
@@ -797,7 +798,8 @@ views:
                     var future = f.filter(x => new Date(x.start_time) > now);
                     
                     function formatVal(v) {
-                      return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
+                      var cents = v * 100;
+                      return (Math.abs(cents) < 1) ? cents.toFixed(1) + 'c' : Math.round(cents) + 'c';
                     }
 
                     function getColor(val) {
@@ -844,7 +846,8 @@ views:
                 state_display: |
                   [[[ 
                     var v = parseFloat(entity.state);
-                    var display = v < 1 ? (v * 100).toFixed(1) + 'c' : '$' + v.toFixed(2);
+                    var cents = v * 100;
+                    var display = (Math.abs(cents) < 1) ? cents.toFixed(1) + 'c' : Math.round(cents) + 'c';
                     return display + (entity.attributes.estimate ? '*' : ''); 
                   ]]]
               - type: custom:button-card
@@ -865,7 +868,8 @@ views:
                     var future = f.filter(x => new Date(x.start_time) > now);
 
                     function formatVal(v) {
-                      return v < 1 ? (v * 100).toFixed(0) + 'c' : v.toFixed(2);
+                      var cents = v * 100;
+                      return (Math.abs(cents) < 1) ? cents.toFixed(1) + 'c' : Math.round(cents) + 'c';
                     }
 
                     function getColorFiT(val) {
