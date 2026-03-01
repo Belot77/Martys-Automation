@@ -2219,13 +2219,19 @@ action:
       pv_safeguard_active: >
         {% set full_export_override = battery_soc >= max_battery_soc and not is_evening_or_night and ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
         {% set forecast_available = (forecast_remaining | float(0)) > 0 %}
+        
+        {# Improve tomorrow check: use charging safety margin (1.25) for better protection #}
         {% set tomorrow_kwh = forecast_tomorrow | float(0) %}
         {% set capacity = battery_capacity_kwh | float(10) %}
-        {% set low_tomorrow = is_evening_or_night and (tomorrow_kwh < (capacity * (forecast_safety_export | float(1.1)))) %}
-        {{ not full_export_override and not positive_fit_override and (
-           (forecast_available and (forecast_remaining | float(0)) <= ((battery_fill_need_kwh | float(0)) * forecast_safety_export))
-           or low_tomorrow
-        ) }}
+        {% set safety_margin = forecast_safety_charging | float(1.25) %}
+        {% set low_tomorrow = is_evening_or_night and (tomorrow_kwh < (capacity * safety_margin)) %}
+
+        {# Improve today check: subtract estimated load and use charging safety margin #}
+        {% set est_load_kwh = (load_kw | float(0)) * (hours_to_sunset | float(0)) %}
+        {% set net_forecast = (forecast_remaining | float(0)) - est_load_kwh %}
+        {% set low_today = forecast_available and (net_forecast <= ((battery_fill_need_kwh | float(0)) * safety_margin)) %}
+
+        {{ not full_export_override and not positive_fit_override and (low_today or low_tomorrow) }}
 
       # Solar Surplus Bypass: When forecast is excellent, bypass normal export restrictions
       # to allow full PV export even when battery is below target SoC.
