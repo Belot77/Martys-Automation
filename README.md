@@ -52,7 +52,8 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 ### Home Assistant Integrations
 - **SigEnergy** - Battery/EMS control and sensor data
 - **Solcast Solar** - PV forecast data (custom integration)
-- **Amber Electric** - Dynamic pricing data (Australia)
+- **Amber Express** - Dynamic pricing data (Australia) with 5‑minute forecasts (preferred)
+- Amber Electric (legacy) is still compatible, but defaults now target Amber Express.
 
 ### New Blueprint Inputs (Solar Surplus Bypass)
 
@@ -72,6 +73,19 @@ Intelligent battery-preserving automation for SigEnergy EMS that prioritizes hav
 ```
 
 See blueprint UI for details.
+
+### Amber Express Setup Notes
+- Use the detailed entities for both buy and feed‑in prices:
+  - `sensor.amber_express_home_general_price_detailed`
+  - `sensor.amber_express_home_feed_in_price_detailed`
+- Forecasts are read from the `forecasts` attribute with `per_kwh` and `start_time`.
+- Unit model:
+  - Internal comparisons use **$/kWh** (threshold inputs are in $/kWh).
+  - Displays use **¢/kWh** via a multiplier of 100 for readability.
+- Recommended defaults (now prefilled in the blueprint):
+  - Price Multiplier: `100.0`
+  - Price Spike Sensor: `binary_sensor.amber_express_home_price_spike`
+  - Demand Window Sensor: `binary_sensor.amber_express_home_demand_window`
 
 ### Required Helper Entities
 
