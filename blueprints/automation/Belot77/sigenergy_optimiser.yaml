@@ -2560,7 +2560,11 @@ action:
         {% elif morning_slow_charge_active | bool(false) %}
           Exporting {{ grid_export_actual_kw | round(1) }}kW, Slow charge
         {% elif solar_surplus_bypass %}
-          Exporting {{ grid_export_actual_kw | round(1) }}kW, Solar bypass ({{ forecast_remaining | round(1) }}kWh left){% if price_is_estimated %}*{% endif %}
+          {% if (grid_export_actual_kw | float(0)) <= 0.05 %}
+            Solar bypass active, waiting for net surplus ({{ forecast_remaining | round(1) }}kWh left){% if price_is_estimated %}*{% endif %}
+          {% else %}
+            Exporting {{ grid_export_actual_kw | round(1) }}kW, Solar bypass ({{ forecast_remaining | round(1) }}kWh left){% if price_is_estimated %}*{% endif %}
+          {% endif %}
         {% elif (export_blocked_effective or export_forecast_guard) and not solar_surplus_bypass %}
           Export blocked, low forecast
         {% elif battery_soc <= export_min_soc %}
@@ -2742,10 +2746,11 @@ action:
                     {% set pv_surplus_full = [(solar_potential_kw | float(0)) - (load_kw | float(0)), 0] | max %}
                     {% set limit = [(limit | float(0)), (pv_surplus_full | float(0))] | min %}
                   {% else %}
-                    {# Prioritize battery charging: subtract actual charging limit from surplus #}
+                    {# In solar bypass mode, allow direct PV surplus export.
+                    Outside bypass, prioritize battery charging first. #}
                     {% set raw_surplus = [(pv_kw | float(0)) - (load_kw | float(0)), 0] | max %}
                     {% set max_charge_kw = (states(ess_max_charging_limit_entity) | float(target_battery_charge | float(6.0))) %}
-                    {% set charge_priority = max_charge_kw if battery_soc < 98 else 0 %}
+                    {% set charge_priority = 0 if solar_surplus_bypass else (max_charge_kw if battery_soc < 98 else 0) %}
                     {% set pv_surplus_net = [raw_surplus - charge_priority, 0] | max %}
                     {% set limit = [(limit | float(0)), (pv_surplus_net | float(0))] | min %}
                   {% endif %}
