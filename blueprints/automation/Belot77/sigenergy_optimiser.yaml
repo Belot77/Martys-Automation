@@ -1466,7 +1466,7 @@ action:
       demand_window_active: "{{ is_state(demand_window_sensor_entity, 'on') }}"
       export_spike_active: >
         {{ price_spike_active and feedin_price >= (export_spike_threshold | float(0)) }}
-      positive_fit_override: "{{ allow_low_medium_export_positive_fit and feedin_price > 0 }}"
+      positive_fit_override: "{{ allow_low_medium_export_positive_fit and feedin_price >= 0.01 }}"
       solar_power_now: "{{ states(solar_power_now_sensor_entity) | float(0) }}"
       current_mode: "{{ states(ems_mode_select_entity) }}"
       current_export_limit: "{{ states(grid_export_limit_entity) | float(0) }}"
@@ -2314,7 +2314,7 @@ action:
         {% set daytime = (not is_evening_or_night) and (not export_high_price) and (not export_spike_active) %}
         {% set battery_full = battery_soc >= 99 %}
         {% set has_pv_surplus = ((solar_potential_kw | float(0)) - (load_kw | float(0))) > (min_grid_transfer_kw | float(0.5)) %}
-        {{ daytime and battery_full and has_pv_surplus and feedin_price > 0 }}
+        {{ daytime and battery_full and has_pv_surplus and feedin_price >= 0.01 }}
 
       # Export Tier Limit: Determines kW export cap based on FIT price, battery SoC, and mode.
       # Three price tiers (low/medium/high) with corresponding kW limits (default 5/10/25kW).
@@ -2330,7 +2330,7 @@ action:
           {{ export_limit_high }}
         {% elif export_solar_override %}
           {{ export_limit_high }}
-        {% elif battery_soc >= 99 and feedin_price > 0 %}
+        {% elif battery_soc >= 99 and feedin_price >= 0.01 %}
           {{ export_limit_high }}
         {% elif feedin_price < export_threshold_low %}
           0
@@ -2545,7 +2545,7 @@ action:
           Export blocked, price is negative ({{ c_disp }}¢{{ est }})
         {% elif not feedin_available %}
           Export blocked, FIT unavailable
-        {% elif f_price < 0.01 %}
+        {% elif f_price < 1 %}
           Export blocked, FIT is zero/negative ({{ f_disp }}¢{{ est }})
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           Export blocked, saving for sunset ({{ battery_soc | round(0) }}% < 100%)
@@ -2649,7 +2649,7 @@ action:
       desired_export_limit: >
         {% set high_price = export_high_price | bool(false) %}
         {% set spike = export_spike_active | default(false) | bool(false) %}
-        {% if (feedin_price_cents | float(0)) < 0.01 %}
+        {% if (feedin_price_cents | float(0)) < 1 %}
           0
         {% elif battery_full_safeguard_block_export and not (high_price or spike) %}
           0
